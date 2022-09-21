@@ -104,7 +104,7 @@ we just want to allow case constants that are not known at compile time.
 
 ## Is this even valid/possible?
 
-This transformation depends on a following details:
+This transformation depends on the following details:
 
 - [ ] `gcc` plugins can access the type information of `case` values
 - [ ] `gcc` plugins can access the type of the input to `switch`
@@ -112,7 +112,7 @@ This transformation depends on a following details:
   or an arbitrary expression
 - [ ] `gcc` plugins allow modifying the AST (like `openmp` or `randstruct`)
 - [ ] `gcc` plugins allow modifying the AST _after_ the preprocessor has completed,
-  but _before_ raising the `case constant` error
+  but _before_ raising the `case constant` error to the user
 - [ ] the AST rewrite into the `if`-`else` form produces non-horrible assembly when compared 
   to the ideal `switch` statement (check via Godbolt)
 - [ ] there are few (hopefully zero) edge cases where this transformation
@@ -138,13 +138,13 @@ done its work, so that the focus can be solely on the AST. `gcc` comes in with a
 battle-tested C preprocessor, parser, and plugin support, so why not a `gcc`
 plugin?
 
-## Possible implementation style: via a `pragma`
+## Possible implementation: via a `pragma`
 
 This would require someone to annotate the necessary `switch` statements with
 something like
 
 ```c
-#pragma ifswitch rearrange
+#pragma ifswitch rearrange int
 switch(value) {
     // cases
 }
@@ -168,9 +168,22 @@ plugin in your build script wherever you call `gcc` and it would silently
 rewrite the AST where necessary.
 
 Disadvantage: It may be slow to check every `case` in every `switch`. Also, it
-is known how much type information is present for the plugin to use -- for
+is not known how much type information is present for the plugin to use -- for
 example, does the plugin know if the `case` is a `#define`, `static const`,
 `extern const`, or (ouch) an arbitrary expression?
+
+## Possible implementation: intercept the error and modify necessary AST
+
+In this method, the plugin would activate only if `gcc` was raising a `case
+constant` error with respect to a particular `switch` statement.
+
+Advantage: best of both worlds -- requires no manual labor, and we check/modify
+only those `switch` statements which actually need to be modified.
+
+Disadvantage: may not be possible -- It is not yet clear if `gcc` allows a
+plugin to intercept the error message and then modify the AST. There is also an
+issue of the `case constant` error being raised due to some unrelated issue, and
+the plugin making things worse.
 
 ## References:
 
