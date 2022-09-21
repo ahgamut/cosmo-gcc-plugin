@@ -110,8 +110,8 @@ This transformation depends on a following details:
 - [ ] `gcc` plugins can access the type of the input to `switch`
 - [ ] `gcc` plugins can determine if an AST subtree is a value, `const` variable,
   or an arbitrary expression
-- [ ]`gcc` plugins allow modifying the AST (like `openmp` or `randstruct`)
-- [ ]`gcc` plugins allow modifying the AST _after_ the preprocessor has completed,
+- [ ] `gcc` plugins allow modifying the AST (like `openmp` or `randstruct`)
+- [ ] `gcc` plugins allow modifying the AST _after_ the preprocessor has completed,
   but _before_ raising the `case constant` error
 - [ ] the AST rewrite into the `if`-`else` form produces non-horrible assembly when compared 
   to the ideal `switch` statement (check via Godbolt)
@@ -120,6 +120,22 @@ This transformation depends on a following details:
   `operator=`, `operator==`, and `operator int()` are defined with side-effects)
 - [ ] there are few (hopefully zero) edge cases where this transformation
   introduces UB and/or connected security risk
+
+## Why a compiler plugin? Is there no other way?
+
+There might be other ways to handle such incorrect switch statements, but any
+method to rearrange these `switch` statements would need to incorporate a C
+preprocessor and parser, and any source code transformations would need to
+remain valid even if `ifdef`s are mixed within the C source code.
+
+Mixing `ifdef`s` is a quite common occurrence in `switch` statements -- often
+times you see handlers for `errno` having a bunch of `ifdef`s (and
+fallthroughs!) to allow for different kinds of errno values based on the
+operating system.
+
+The best place to handle these switch statements is _after_ the preprocessor has
+done its work, so that the focus can be solely on the AST. `gcc` comes in with a
+battle-tested C preprocessor and parser, so why not a `gcc` plugin?
 
 ## Possible implementation style: via a `pragma`
 
