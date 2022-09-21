@@ -128,14 +128,15 @@ method to rearrange these `switch` statements would need to incorporate a C
 preprocessor and parser, and any source code transformations would need to
 remain valid even if `ifdef`s are mixed within the C source code.
 
-Mixing `ifdef`s` is a quite common occurrence in `switch` statements -- often
+Mixing `ifdef`s is a quite common occurrence in `switch` statements -- often
 times you see handlers for `errno` having a bunch of `ifdef`s (and
 fallthroughs!) to allow for different kinds of errno values based on the
 operating system.
 
 The best place to handle these switch statements is _after_ the preprocessor has
 done its work, so that the focus can be solely on the AST. `gcc` comes in with a
-battle-tested C preprocessor and parser, so why not a `gcc` plugin?
+battle-tested C preprocessor, parser, and plugin support, so why not a `gcc`
+plugin?
 
 ## Possible implementation style: via a `pragma`
 
