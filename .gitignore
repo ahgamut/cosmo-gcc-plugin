@@ -1,3 +1,7 @@
+#
+examples/*
+!examples/*.*
+
 # Prerequisites
 *.d
 

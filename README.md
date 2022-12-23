@@ -33,7 +33,7 @@ switch (value) {
         // fall-through
 
     default:
-        print("you got a %d\n", value);
+        printf("you got a %d\n", value);
 }
 ```
 
@@ -91,7 +91,7 @@ else goto __plugin_switch_default;
         // fall-through
 
     __plugin_switch_default:
-        print("you got a %d\n", __plugin_tmp);
+        printf("you got a %d\n", __plugin_tmp);
         goto __plugin_switch_end;
 }
 __plugin_switch_end: ;;
