@@ -7,7 +7,7 @@ extern void something_3();
 
 #define HAVE_TWO
 #ifdef HAVE_TWO
-#define TWO 2
+extern const int TWO;
 #endif
 
 #define THREE 3

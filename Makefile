@@ -29,7 +29,7 @@ test: $(EXAMPLE_BINS)
 ./examples/ex1_default: ./examples/ex1_default.o ./examples/functions.o
 	$(CC) $^ -o $@
 
-./examples/ex1_modded: ./examples/ex1_modded.o ./examples/functions.o
+./examples/ex1_modded: ./examples/ex1_modded.o ./examples/functions.o ./examples/supp.o
 	$(CC) $^ -o $@
 
 ./examples/ex1_result: ./examples/ex1_result.o ./examples/supp.o ./examples/functions.o

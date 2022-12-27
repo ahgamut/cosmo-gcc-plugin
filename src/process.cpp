@@ -18,50 +18,60 @@
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "ifswitch.h"
 
-int plugin_is_GPL_compatible; /* ISC */
+#define FUNC_CALL_AS_TREE(fname) lookup_name(get_identifier((fname)))
+#define STRING_AS_TREE(str)      build_string_literal(strlen((str)) + 1, (str))
 
-static struct plugin_name_args ifswitch_info = {
-    .base_name = IFSWITCH, .version = IFSWITCH_VERSION, .help = IFSWITCH_HELP};
-
-void at_decl(void *gcc_data, void *user_data) {
-  tree t = (tree)gcc_data;
-  tree t2;
-  if (TREE_CODE(t) == FUNCTION_DECL) {
-    /* this function is defined within the file I'm processing */
-    printf("start_decl calling %s\n", IDENTIFIER_NAME(t));
-    if (!strcmp("exam_func", IDENTIFIER_NAME(t))) {
-      t2 = DECL_SAVED_TREE(t);
-      // process_stmt(&t2);
-      debug_tree(t2);
-    }
+tree insert_case_count(tree swexpr) {
+  int case_count = 0, break_count = 0;
+  tree stmt = SWITCH_STMT_BODY(swexpr);
+  char dest[64] = {0};
+  for (auto i = tsi_start(stmt); !tsi_end_p(i); tsi_next(&i)) {
+    if (TREE_CODE(tsi_stmt(i)) == CASE_LABEL_EXPR)
+      case_count += 1;
+    else if (TREE_CODE(tsi_stmt(i)) == BREAK_STMT)
+      break_count += 1;
   }
+  snprintf(dest, sizeof(dest), "above switch had %d cases and %d breaks\n",
+           case_count, break_count);
+  return build_call_expr(FUNC_CALL_AS_TREE("printf"), 1, STRING_AS_TREE(dest));
 }
 
-void print_debug(void *gcc_data, void *user_data) {
-  tree t = (tree)gcc_data;
-  tree t2;
-  if (TREE_CODE(t) == FUNCTION_DECL && DECL_INITIAL(t) != NULL &&
-      TREE_STATIC(t)) {
-    /* this function is defined within the file I'm processing */
-    printf("pre-genericize calling %s\n", IDENTIFIER_NAME(t));
-    t2 = DECL_SAVED_TREE(t);
-    process_stmt(&t2);
-    // debug_tree(DECL_SAVED_TREE(t));
-  }
+void process_switch(tree *swptr) {
+  tree swexpr = *swptr;
+  /* swexpr is basically a switch statement as a GCC GENERIC AST */
+  printf("we are in the switch statement\n");
+  printf("type is\n");
+  debug_tree(SWITCH_STMT_TYPE(swexpr));
+  printf("condition is\n");
+  debug_tree(SWITCH_STMT_COND(swexpr));
+  printf("body is\n");
+  process_stmt(&SWITCH_STMT_BODY(swexpr));
+  printf("scope is\n");
+  debug_tree(SWITCH_STMT_SCOPE(swexpr));
+  *swptr = insert_case_count(*swptr);
 }
 
-int plugin_init(struct plugin_name_args *plugin_info,
-                struct plugin_gcc_version *version) {
-  if (!plugin_default_version_check(version, &gcc_version)) {
-    fprintf(stderr, "GCC version incompatible!\n");
-    return 1;
+void process_stmt(tree *sptr) {
+  tree stmt = *sptr;
+  tree temp;
+  switch (TREE_CODE(stmt)) {
+    case BIND_EXPR:
+      temp = BIND_EXPR_BODY(stmt);
+      process_stmt(&temp);
+      break;
+    case STATEMENT_LIST:
+      for (auto i = tsi_start(stmt); !tsi_end_p(i); tsi_next(&i)) {
+        process_stmt(tsi_stmt_ptr(i));
+        if (TREE_CODE(tsi_stmt(i)) == SWITCH_STMT) {
+          tsi_delink(&i);
+        }
+      }
+      break;
+    case SWITCH_STMT:
+      process_switch(sptr);
+      break;
+    default:
+      printf("did not process %s\n", get_tree_code_str(stmt));
+      break;
   }
-  printf("Loading plugin %s on GCC %s...\n", plugin_info->base_name,
-         version->basever);
-  register_callback(plugin_info->base_name, PLUGIN_INFO, NULL, &ifswitch_info);
-  register_callback(plugin_info->base_name, PLUGIN_START_PARSE_FUNCTION,
-                    at_decl, NULL);
-  register_callback(plugin_info->base_name, PLUGIN_PRE_GENERICIZE, print_debug,
-                    NULL);
-  return 0;
 }
