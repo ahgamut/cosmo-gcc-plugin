@@ -5,14 +5,18 @@ extern void something_1();
 extern void something_2();
 extern void something_3();
 
+#define LITERALLY(X) X
+
 #define HAVE_TWO
 #ifdef HAVE_TWO
 extern const int TWO;
+#define TWO LITERALLY(TWO)
 #endif
 
 #define THREE 3
 
 void exam_func(int value) {
+  #pragma ifswitch rearrange
   switch (value) {
     case 1: {
       // might create a variable in this scope
@@ -38,7 +42,7 @@ void exam_func(int value) {
       // fall-through
 
     default:
-      printf("you got a %d\n", value);
+      printf("default you got a %d\n", value);
   }
   printf("DONE WITH SWITCH\n");
   printf("----------------\n");

@@ -26,13 +26,16 @@ static struct plugin_name_args ifswitch_info = {
 void at_decl(void *gcc_data, void *user_data) {
   tree t = (tree)gcc_data;
   tree t2;
+  struct c_language_function *l;
+
   if (TREE_CODE(t) == FUNCTION_DECL) {
     /* this function is defined within the file I'm processing */
-    printf("start_decl calling %s\n", IDENTIFIER_NAME(t));
+    printf("\nstart_decl calling %s\n", IDENTIFIER_NAME(t));
     if (!strcmp("exam_func", IDENTIFIER_NAME(t))) {
       t2 = DECL_SAVED_TREE(t);
       // process_stmt(&t2);
       debug_tree(t2);
+      auto &stv = cur_stmt_list;
     }
   }
 }
@@ -40,14 +43,59 @@ void at_decl(void *gcc_data, void *user_data) {
 void print_debug(void *gcc_data, void *user_data) {
   tree t = (tree)gcc_data;
   tree t2;
+  printf("pre-genericize calling %s\n", IDENTIFIER_NAME(t));
+  printf("error count is %d\n", errorcount);
   if (TREE_CODE(t) == FUNCTION_DECL && DECL_INITIAL(t) != NULL &&
       TREE_STATIC(t)) {
     /* this function is defined within the file I'm processing */
-    printf("pre-genericize calling %s\n", IDENTIFIER_NAME(t));
     t2 = DECL_SAVED_TREE(t);
     process_stmt(&t2);
     // debug_tree(DECL_SAVED_TREE(t));
   }
+}
+
+void check_macro_define(cpp_reader *reader, location_t loc,
+                        cpp_hashnode *node) {
+  printf("at %u defining macro.. %s\n", loc,
+         cpp_macro_definition(reader, node));
+}
+
+void check_macro_use(cpp_reader *reader, location_t loc, cpp_hashnode *node) {
+  printf("at %u checking macro.. %s\n", loc,
+         cpp_macro_definition(reader, node));
+}
+
+void handle_ifswitch_rearrange(cpp_reader *reader, void *data) {
+  location_t hello = 0;
+  cpp_callbacks *cbs = cpp_get_callbacks(reader);
+  tree stpls = NULL;
+  auto t = pragma_lex(&stpls);
+
+  if (t != CPP_EOF) {
+    printf("glitch wtf\n");
+    return;
+  }
+  printf("cleaned out the pragma eof\n");
+  cpp_define_formatted(parse_in, "TWO=8");
+
+  printf("data is %p, NULL? %d\n", data, data == NULL);
+  printf("cbs is %p, NULL? %d\n", cbs, cbs == NULL);
+  printf("cbs->used is %p, NULL? %d\n", cbs->used, cbs->used == NULL);
+  if (cbs->used == NULL) {
+    cbs->used = check_macro_use;
+  }
+}
+
+void setup_ifswitch_pragma(void *gcc_data, void *user_data) {
+  c_register_pragma_with_data("ifswitch", "rearrange",
+                              handle_ifswitch_rearrange, NULL);
+  cpp_callbacks *cbs = cpp_get_callbacks(parse_in);
+  printf("cbs is %p, NULL? %d\n", cbs, cbs == NULL);
+  printf("cbs->define is %p, NULL? %d\n", cbs->define, cbs->define == NULL);
+  if (cbs && cbs->define == NULL) {
+    cbs->define = check_macro_define;
+  }
+  fprintf(stderr, "registered rearrange\n");
 }
 
 int plugin_init(struct plugin_name_args *plugin_info,
@@ -59,8 +107,10 @@ int plugin_init(struct plugin_name_args *plugin_info,
   printf("Loading plugin %s on GCC %s...\n", plugin_info->base_name,
          version->basever);
   register_callback(plugin_info->base_name, PLUGIN_INFO, NULL, &ifswitch_info);
-  register_callback(plugin_info->base_name, PLUGIN_START_PARSE_FUNCTION,
-                    at_decl, NULL);
+  /* register_callback(plugin_info->base_name, PLUGIN_START_PARSE_FUNCTION,
+                    at_decl, NULL); */
+  register_callback(plugin_info->base_name, PLUGIN_PRAGMAS,
+                    setup_ifswitch_pragma, NULL);
   register_callback(plugin_info->base_name, PLUGIN_PRE_GENERICIZE, print_debug,
                     NULL);
   return 0;

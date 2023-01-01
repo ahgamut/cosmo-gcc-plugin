@@ -8,6 +8,9 @@
 #include <gcc-plugin.h>
 /* first gcc-plugin, then the others */
 #include <c-family/c-common.h>
+#include <c-family/c-pragma.h>
+#include <cpplib.h>
+#include <diagnostic.h>
 #include <plugin-version.h>
 #include <print-tree.h>
 #include <stringpool.h>
@@ -19,7 +22,7 @@
 #define IFSWITCH_HELP    "convert switch statements to if statements"
 
 /* useful macros */
-#define IDENTIFIER_NAME(z)       IDENTIFIER_POINTER(DECL_NAME((z)))
+#define IDENTIFIER_NAME(z) IDENTIFIER_POINTER(DECL_NAME((z)))
 
 /* in process.cpp */
 // void process_body(tree);
