@@ -9,6 +9,7 @@
 /* first gcc-plugin, then the others */
 #include <c-family/c-common.h>
 #include <c-family/c-pragma.h>
+#include <c-tree.h>
 #include <cpplib.h>
 #include <diagnostic.h>
 #include <plugin-version.h>

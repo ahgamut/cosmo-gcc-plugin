@@ -10,7 +10,7 @@ PLUGIN_HEADERS = $(wildcard src/*.h)
 PLUGIN_SONAME = ./src/ifswitch.so
 
 EXAMPLE_FLAGS = -I./examples -O2
-EXAMPLE_MODFLAGS = $(EXAMPLE_FLAGS) -fplugin=$(PLUGIN_SONAME)
+EXAMPLE_MODFLAGS = $(EXAMPLE_FLAGS) -fplugin=$(PLUGIN_SONAME) -include examples/ugly_hax.h
 EXAMPLE_BINS = ./examples/ex1_default ./examples/ex1_result ./examples/ex1_modded
 
 all: $(EXAMPLE_BINS)

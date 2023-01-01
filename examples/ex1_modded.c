@@ -13,9 +13,8 @@ extern const int TWO;
 #define TWO LITERALLY(TWO)
 #endif
 
-#define THREE 3
-
 void exam_func(int value) {
+  const int THREE = 3;
   #pragma ifswitch rearrange
   switch (value) {
     case 1: {
