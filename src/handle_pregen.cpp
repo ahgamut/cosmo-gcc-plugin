@@ -18,53 +18,37 @@
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "ifswitch.h"
 
-int plugin_is_GPL_compatible; /* ISC */
+void handle_start_parsef(void *gcc_data, void *user_data) {
+  tree t = (tree)gcc_data;
+  tree t2;
+  struct c_language_function *l;
 
-static struct plugin_name_args ifswitch_info = {
-    .base_name = IFSWITCH, .version = IFSWITCH_VERSION, .help = IFSWITCH_HELP};
-
-/* DON'T FREE THIS */
-subu_list recorder = {
-    .head = NULL,
-    .start = 0,
-    .end = 0,
-    .count = 0,
-};
-
-void handle_finish_cleanup(void *gcc_data, void *user_data) {
-  /* here we would check if all our transformations
-   * actually happened or not, because if someone tried
-   * some wacky things within a switch there is a chance
-   * we might need to error out */
-  DEBUGF("Attempting cleanup...\n");
-  subu_list *list = (subu_list *)user_data;
-  if (list != NULL && list == &recorder) {
-    /* check count here */
-    clear_subu_list(list);
-  } else {
-    error_at(MAX_LOCATION_T, "fatal error with plugin, could not clear data\n");
+  if (TREE_CODE(t) == FUNCTION_DECL) {
+    /* this function is defined within the file I'm processing */
+    DEBUGF("\nhandle_start_parsef calling %s\n", IDENTIFIER_NAME(t));
+    if (!strcmp("exam_func", IDENTIFIER_NAME(t))) {
+      t2 = DECL_SAVED_TREE(t);
+      // process_stmt(&t2);
+      // debug_tree(t2);
+      auto &stv = cur_stmt_list;
+    }
   }
 }
 
-int plugin_init(struct plugin_name_args *plugin_info,
-                struct plugin_gcc_version *version) {
-  if (!plugin_default_version_check(version, &gcc_version)) {
-    DEBUGF("GCC version incompatible!\n");
-    return 1;
+void handle_pre_genericize(void *gcc_data, void *user_data) {
+  tree t = (tree)gcc_data;
+  subu_list *list = (subu_list *)user_data;
+  tree t2;
+  if (list->count == 0) {
+    DEBUGF("no substitutions were made in %s\n", IDENTIFIER_NAME(t));
+    return;
   }
-
-  DEBUGF("Loading plugin %s on GCC %s...\n", plugin_info->base_name,
-         version->basever);
-  register_callback(plugin_info->base_name, PLUGIN_INFO, NULL, &ifswitch_info);
-  /* register_callback(plugin_info->base_name, PLUGIN_START_PARSE_FUNCTION,
-                    handle_start_parsef, NULL); */
-  register_callback(plugin_info->base_name, PLUGIN_PRAGMAS, handle_pragma_setup,
-                    &recorder);
-  register_callback(plugin_info->base_name, PLUGIN_PRE_GENERICIZE,
-                    handle_pre_genericize, &recorder);
-  register_callback(plugin_info->base_name, PLUGIN_FINISH_PARSE_FUNCTION,
-                    handle_end_parsef, &recorder);
-  register_callback(plugin_info->base_name, PLUGIN_FINISH,
-                    handle_finish_cleanup, &recorder);
-  return 0;
+  if (TREE_CODE(t) == FUNCTION_DECL && DECL_INITIAL(t) != NULL &&
+      TREE_STATIC(t)) {
+    /* this function is defined within the file I'm processing */
+    DEBUGF("pre-genericize calling %s\n", IDENTIFIER_NAME(t));
+    t2 = DECL_SAVED_TREE(t);
+    process_stmt(&t2, list);
+    // debug_tree(DECL_SAVED_TREE(t));
+  }
 }

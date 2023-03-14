@@ -7,11 +7,13 @@ extern void something_3();
 
 #define LITERALLY(X) X
 
-#define HAVE_TWO
-#ifdef HAVE_TWO
+#define HAVE_TWO 1
+#if HAVE_TWO
 extern const int TWO;
 #define TWO LITERALLY(TWO)
 #endif
+
+#define LOLMAX(X) case X:
 
 void exam_func(int value) {
   const int THREE = 3;
@@ -21,11 +23,12 @@ void exam_func(int value) {
       // might create a variable in this scope
       something_1();
       printf("you got a 1\n");
+      printf("hello TWO is %d\n", TWO);
       break;
     }
 
 #ifdef HAVE_TWO
-    case TWO:
+    LOLMAX(TWO)
       something_2();
       printf("you got a 2\n");
       printf("hello TWO is %d\n", TWO);
@@ -39,6 +42,7 @@ void exam_func(int value) {
 
     case 19 ... 27:
       printf("sorry you don't get a number\n");
+      printf("hello TWO is %d\n", TWO);
       break;
 
     case 0:
