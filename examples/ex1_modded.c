@@ -28,12 +28,17 @@ void exam_func(int value) {
     case TWO:
       something_2();
       printf("you got a 2\n");
+      printf("hello TWO is %d\n", TWO);
       // fall-through
 #endif
 
     case THREE:
       something_3();
       printf("you got a 3\n");
+      break;
+
+    case 19 ... 27:
+      printf("sorry you don't get a number\n");
       break;
 
     case 0:

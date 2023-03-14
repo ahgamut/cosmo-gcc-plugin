@@ -1,6 +1,7 @@
 #
 examples/*
 !examples/*.*
+*.pdf
 
 # Prerequisites
 *.d

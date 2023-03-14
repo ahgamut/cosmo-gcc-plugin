@@ -22,9 +22,6 @@
 #define IFSWITCH_VERSION "0.0.1"
 #define IFSWITCH_HELP    "convert switch statements to if statements"
 
-/* useful macros */
-#define IDENTIFIER_NAME(z) IDENTIFIER_POINTER(DECL_NAME((z)))
-
 /* in process.cpp */
 // void process_body(tree);
 void process_stmt(tree*);
@@ -33,5 +30,16 @@ void process_stmt(tree*);
 
 /* in utils.cpp */
 const char* get_tree_code_str(tree);
+
+/* useful macros */
+#define IDENTIFIER_NAME(z) IDENTIFIER_POINTER(DECL_NAME((z)))
+#define EXPR_LOC_LINE(x)   LOCATION_LINE(EXPR_LOCATION((x)))
+#define EXPR_LOC_COL(x)    LOCATION_COLUMN(EXPR_LOCATION((x)))
+
+#ifndef NDEBUG
+#define DEBUGF(...) fprintf(stderr, "<DEBUG> " __VA_ARGS__)
+#else
+#define DEBUGF(...)
+#endif
 
 #endif /* IFSWITCH_H */

@@ -24,11 +24,24 @@
 tree insert_case_count(tree swexpr) {
   int case_count = 0, break_count = 0;
   tree stmt = SWITCH_STMT_BODY(swexpr);
+  tree tmp = NULL;
   char dest[64] = {0};
   for (auto i = tsi_start(stmt); !tsi_end_p(i); tsi_next(&i)) {
-    if (TREE_CODE(tsi_stmt(i)) == CASE_LABEL_EXPR)
+    if (TREE_CODE(tsi_stmt(i)) == CASE_LABEL_EXPR) {
       case_count += 1;
-    else if (TREE_CODE(tsi_stmt(i)) == BREAK_STMT)
+      tmp = tsi_stmt(i);
+      // DEBUGF("location of this case is %u\n", EXPR_LOCATION(tmp));
+      if (CASE_LOW(tmp) != NULL_TREE && CASE_HIGH(tmp) == NULL_TREE) {
+        /* this is a case label */
+        DEBUGF("location of the label is %u %u\n",
+               EXPR_LOC_LINE(tmp), EXPR_LOC_COL(tmp));
+        DEBUGF("location of the label is %u %u\n",
+               EXPR_LOC_LINE(CASE_LOW(tmp)), EXPR_LOC_COL(CASE_LOW(tmp)));
+        debug_tree(CASE_LOW(tmp));
+        debug_tree(CASE_LABEL(tmp));
+        debug_tree(CASE_CHAIN(tmp));
+      }
+    } else if (TREE_CODE(tsi_stmt(i)) == BREAK_STMT)
       break_count += 1;
   }
   snprintf(dest, sizeof(dest), "above switch had %d cases and %d breaks\n",
