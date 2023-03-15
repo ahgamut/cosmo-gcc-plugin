@@ -56,8 +56,8 @@ int plugin_init(struct plugin_name_args *plugin_info,
   DEBUGF("Loading plugin %s on GCC %s...\n", plugin_info->base_name,
          version->basever);
   register_callback(plugin_info->base_name, PLUGIN_INFO, NULL, &ifswitch_info);
-  /* register_callback(plugin_info->base_name, PLUGIN_START_PARSE_FUNCTION,
-                    handle_start_parsef, NULL); */
+  register_callback(plugin_info->base_name, PLUGIN_START_PARSE_FUNCTION,
+                    handle_start_parsef, NULL);
   register_callback(plugin_info->base_name, PLUGIN_PRAGMAS, handle_pragma_setup,
                     &recorder);
   register_callback(plugin_info->base_name, PLUGIN_PRE_GENERICIZE,

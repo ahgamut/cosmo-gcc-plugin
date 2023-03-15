@@ -119,6 +119,16 @@ void handle_pragma_setup(void *gcc_data, void *user_data) {
   DEBUGF("registered rearrange\n");
 }
 
+void handle_start_parsef(void *gcc_data, void *user_data) {
+  tree t = (tree)gcc_data;
+  tree t2;
+
+  if (TREE_CODE(t) == FUNCTION_DECL) {
+    /* this function is defined within the file I'm processing */
+    DEBUGF("\nhandle_start_parsef calling %s\n", IDENTIFIER_NAME(t));
+  }
+}
+
 void handle_end_parsef(void *gcc_data, void *user_data) {
   tree t = (tree)gcc_data;
   if (!t || t == error_mark_node) return;

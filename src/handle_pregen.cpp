@@ -18,23 +18,6 @@
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "ifswitch.h"
 
-void handle_start_parsef(void *gcc_data, void *user_data) {
-  tree t = (tree)gcc_data;
-  tree t2;
-  struct c_language_function *l;
-
-  if (TREE_CODE(t) == FUNCTION_DECL) {
-    /* this function is defined within the file I'm processing */
-    DEBUGF("\nhandle_start_parsef calling %s\n", IDENTIFIER_NAME(t));
-    if (!strcmp("exam_func", IDENTIFIER_NAME(t))) {
-      t2 = DECL_SAVED_TREE(t);
-      // process_stmt(&t2);
-      // debug_tree(t2);
-      auto &stv = cur_stmt_list;
-    }
-  }
-}
-
 void handle_pre_genericize(void *gcc_data, void *user_data) {
   tree t = (tree)gcc_data;
   subu_list *list = (subu_list *)user_data;
