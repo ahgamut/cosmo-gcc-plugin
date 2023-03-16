@@ -6,7 +6,9 @@ extern void something_2();
 extern void something_3();
 extern const int abcd;
 
+#ifndef LITERALLY
 #define LITERALLY(X) X
+#endif
 
 #define HAVE_TWO 1
 #if HAVE_TWO
@@ -62,6 +64,7 @@ void exam_func(int value) {
 
 int main(int argc, char **argv) {
   printf("This is the modded example\n");
+  printf("adder: %d\n", adder(2,3));
   exam_func(1);
 main_mid:
   exam_func(abcd);

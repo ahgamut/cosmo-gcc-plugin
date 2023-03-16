@@ -22,32 +22,12 @@ int plugin_is_GPL_compatible; /* ISC */
 
 static struct plugin_name_args ifswitch_info = {
     .base_name = IFSWITCH, .version = IFSWITCH_VERSION, .help = IFSWITCH_HELP};
+extern subu_list recorder;
 
-/* DON'T FREE THIS */
-subu_list recorder = {
-    .head = NULL,
-    .start = 0,
-    .end = 0,
-    .count = 0,
-};
-
-void handle_finish_cleanup(void *gcc_data, void *user_data) {
-  /* here we would check if all our transformations
-   * actually happened or not, because if someone tried
-   * some wacky things within a switch there is a chance
-   * we might need to error out */
-  DEBUGF("Attempting cleanup...\n");
-  subu_list *list = (subu_list *)user_data;
-  if (list != NULL && list == &recorder) {
-    /* check count here */
-    if (list->count != 0) {
-      for (auto it = list->head; it; it = it->next) {
-        error_at(it->loc, "error with plugin, could not substitute constant\n");
-      }
-    }
-    clear_subu_list(list);
-  } else {
-    error_at(MAX_LOCATION_T, "fatal error with plugin, could not clear data\n");
+void handle_decl(void *gcc_data, void *user_data) {
+  tree t = (tree)gcc_data;
+  if (DECL_INITIAL(t) != NULL && TREE_STATIC(t)) {
+    DEBUGF("handle_decl with %s\n", IDENTIFIER_NAME(t));
   }
 }
 
@@ -61,15 +41,13 @@ int plugin_init(struct plugin_name_args *plugin_info,
   DEBUGF("Loading plugin %s on GCC %s...\n", plugin_info->base_name,
          version->basever);
   register_callback(plugin_info->base_name, PLUGIN_INFO, NULL, &ifswitch_info);
-  register_callback(plugin_info->base_name, PLUGIN_START_PARSE_FUNCTION,
-                    handle_start_parsef, NULL);
-  register_callback(plugin_info->base_name, PLUGIN_PRAGMAS, handle_pragma_setup,
-                    &recorder);
+  register_callback(plugin_info->base_name, PLUGIN_START_UNIT, handle_start_tu,
+                    NULL);
   register_callback(plugin_info->base_name, PLUGIN_PRE_GENERICIZE,
                     handle_pre_genericize, &recorder);
-  register_callback(plugin_info->base_name, PLUGIN_FINISH_PARSE_FUNCTION,
-                    handle_end_parsef, &recorder);
-  register_callback(plugin_info->base_name, PLUGIN_FINISH,
-                    handle_finish_cleanup, &recorder);
+  register_callback(plugin_info->base_name, PLUGIN_FINISH_DECL, handle_decl,
+                    &recorder);
+  register_callback(plugin_info->base_name, PLUGIN_FINISH_UNIT,
+                    handle_finish_tu, &recorder);
   return 0;
 }

@@ -22,12 +22,12 @@ void handle_pre_genericize(void *gcc_data, void *user_data) {
   tree t = (tree)gcc_data;
   subu_list *list = (subu_list *)user_data;
   tree t2;
-  if (list->count == 0) {
-    DEBUGF("no substitutions were made in %s\n", IDENTIFIER_NAME(t));
-    return;
-  }
   if (TREE_CODE(t) == FUNCTION_DECL && DECL_INITIAL(t) != NULL &&
       TREE_STATIC(t)) {
+    if (list->count == 0) {
+      DEBUGF("no substitutions were made in %s\n", IDENTIFIER_NAME(t));
+      return;
+    }
     /* this function is defined within the file I'm processing */
     DEBUGF("pre-genericize calling %s\n", IDENTIFIER_NAME(t));
     t2 = DECL_SAVED_TREE(t);

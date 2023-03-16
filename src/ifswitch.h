@@ -18,10 +18,9 @@ const char *get_tree_code_str(tree);
 int get_value_of_const(char *);
 tree get_ifsw_identifier(char *);
 
-void handle_end_parsef(void *, void *);
-void handle_pragma_setup(void *, void *);
-void handle_finish_cleanup(void *, void *);
+void handle_start_tu(void *, void *);
+void handle_finish_tu(void *, void *);
 void handle_pre_genericize(void *, void *);
-void handle_start_parsef(void *, void *);
+void handle_decl(void *, void *);
 
 #endif /* IFSWITCH_H */
