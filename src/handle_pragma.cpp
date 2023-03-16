@@ -33,26 +33,6 @@ void check_macro_lazy(cpp_reader *reader, cpp_macro *m, unsigned int K) {
   DEBUGF("lazy macro.. %p\n", m);
 }
 
-void override_cosmo_macros(cpp_reader *reader = NULL) {
-  if (!reader) {
-    reader = parse_in;
-  }
-  cpp_undef(reader, "LITERALLY");
-  cpp_undef(reader, "SYMBOLIC");
-  cpp_define_formatted(reader, "LITERALLY(X) = __tmp_ifs_ ## X");
-  cpp_define_formatted(reader, "SYMBOLIC(X) = __tmp_ifs_ ## X");
-}
-
-void reset_cosmo_macros(cpp_reader *reader = NULL) {
-  if (!reader) {
-    reader = parse_in;
-  }
-  cpp_undef(reader, "LITERALLY");
-  cpp_undef(reader, "SYMBOLIC");
-  cpp_define_formatted(reader, "LITERALLY(X) = X");
-  cpp_define_formatted(reader, "SYMBOLIC(X) = X");
-}
-
 void check_macro_use(cpp_reader *reader, location_t loc, cpp_hashnode *node) {
   const char *defn = (const char *)cpp_macro_definition(reader, node);
   const char *prev = NULL;
@@ -66,11 +46,10 @@ void check_macro_use(cpp_reader *reader, location_t loc, cpp_hashnode *node) {
      * I just want the name of macro (ie the 'constant'
      * that is being LITERALLY used) */
     space_at = strchr(defn, ' ') - defn;
-    if ((in_statement & IN_SWITCH_STMT)) {
-      add_subu_elem(&recorder, build_subu(loc, defn, space_at, 1));
-    } else {
-      add_subu_elem(&recorder, build_subu(loc, defn, space_at, 0));
-    }
+    /* I don't have enough info to say whether
+     * this is a case label or just a normal statement
+     * inside a switch*/
+    add_subu_elem(&recorder, build_subu(loc, defn, space_at, UNKNOWN));
   }
 }
 
@@ -80,9 +59,42 @@ cpp_hashnode *check_macro_expand(cpp_reader *reader, const cpp_token *tok) {
   return cpp_lookup(reader, prev, strlen((char *)prev));
 }
 
+void override_cosmo_macros(cpp_reader *reader = NULL) {
+  if (!reader) {
+    reader = parse_in;
+  }
+  cpp_callbacks *cbs = cpp_get_callbacks(reader);
+  cpp_undef(reader, "LITERALLY");
+  cpp_undef(reader, "SYMBOLIC");
+  cpp_define_formatted(reader, "LITERALLY(X) = __tmp_ifs_ ## X");
+  cpp_define_formatted(reader, "SYMBOLIC(X) = __tmp_ifs_ ## X");
+  if (cbs->used == NULL) {
+    cbs->used = check_macro_use;
+  }
+  if (cbs->macro_to_expand == NULL) {
+    cbs->macro_to_expand = check_macro_expand;
+  }
+}
+
+void reset_cosmo_macros(cpp_reader *reader = NULL) {
+  if (!reader) {
+    reader = parse_in;
+  }
+  cpp_callbacks *cbs = cpp_get_callbacks(reader);
+  if (cbs->used == check_macro_use) {
+    cbs->used = NULL;
+  }
+  if (cbs->macro_to_expand == check_macro_expand) {
+    cbs->macro_to_expand = NULL;
+  }
+  cpp_undef(reader, "LITERALLY");
+  cpp_undef(reader, "SYMBOLIC");
+  cpp_define_formatted(reader, "LITERALLY(X) = X");
+  cpp_define_formatted(reader, "SYMBOLIC(X) = X");
+}
+
 void handle_ifswitch_rearrange(cpp_reader *reader, void *data) {
   location_t hello = 0;
-  cpp_callbacks *cbs = cpp_get_callbacks(reader);
   tree stpls = NULL;
   auto t = pragma_lex(&stpls);
 
@@ -91,19 +103,9 @@ void handle_ifswitch_rearrange(cpp_reader *reader, void *data) {
     return;
   }
   DEBUGF("cleaned out the pragma eof\n");
-  override_cosmo_macros();
 
   DEBUGF("data is %p, NULL? %d\n", data, data == NULL);
-  DEBUGF("cbs is %p, NULL? %d\n", cbs, cbs == NULL);
-  DEBUGF("cbs->used is %p, NULL? %d\n", cbs->used, cbs->used == NULL);
-  if (cbs) {
-    if (cbs->used == NULL) {
-      cbs->used = check_macro_use;
-    }
-    if (cbs->macro_to_expand == NULL) {
-      cbs->macro_to_expand = check_macro_expand;
-    }
-  }
+  override_cosmo_macros(reader);
 }
 
 void handle_pragma_setup(void *gcc_data, void *user_data) {

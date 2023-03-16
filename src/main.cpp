@@ -40,6 +40,11 @@ void handle_finish_cleanup(void *gcc_data, void *user_data) {
   subu_list *list = (subu_list *)user_data;
   if (list != NULL && list == &recorder) {
     /* check count here */
+    if (list->count != 0) {
+      for (auto it = list->head; it; it = it->next) {
+        error_at(it->loc, "error with plugin, could not substitute constant\n");
+      }
+    }
     clear_subu_list(list);
   } else {
     error_at(MAX_LOCATION_T, "fatal error with plugin, could not clear data\n");

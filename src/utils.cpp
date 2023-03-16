@@ -18,15 +18,30 @@
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "ifswitch.h"
 
-const char* get_tree_code_str(tree expr) {
-#define END_OF_BASE_TREE_CODES 
-#define DEFTREECODE(a, b, c, d)\
-    case a:\
-        return b;
-    switch(TREE_CODE(expr)) {
+const char *get_tree_code_str(tree expr) {
+#define END_OF_BASE_TREE_CODES
+#define DEFTREECODE(a, b, c, d) \
+  case a:                       \
+    return b;
+  switch (TREE_CODE(expr)) {
 #include "all-tree.def"
-        default:
-            return "<unknown>";
-    }
+    default:
+      return "<unknown>";
+  }
 #undef DEFTREECODE
+}
+
+tree get_ifsw_identifier(char *s) {
+  char *result = (char *)xmalloc(strlen("__tmp_ifs_") + strlen(s) + 1);
+  strcpy(result, "__tmp_ifs_");
+  strcat(result, s);
+  tree t = lookup_name(get_identifier(result));
+  free(result);
+  return t;
+}
+
+int get_value_of_const(char *name) {
+  tree vx = get_ifsw_identifier(name);
+  int z = tree_to_shwi(DECL_INITIAL(vx));
+  return z;
 }

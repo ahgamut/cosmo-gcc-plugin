@@ -19,6 +19,7 @@
 #include <tree.h>
 
 /* useful macros */
+#define VAR_NAME_AS_TREE(fname) lookup_name(get_identifier((fname)))
 #define IDENTIFIER_NAME(z) IDENTIFIER_POINTER(DECL_NAME((z)))
 #define EXPR_LOC_LINE(x)   LOCATION_LINE(EXPR_LOCATION((x)))
 #define EXPR_LOC_COL(x)    LOCATION_COLUMN(EXPR_LOCATION((x)))

@@ -4,6 +4,7 @@ extern void something_0();
 extern void something_1();
 extern void something_2();
 extern void something_3();
+extern const int abcd;
 
 #define LITERALLY(X) X
 
@@ -15,20 +16,23 @@ extern const int TWO;
 
 #define LOLMAX(X) case X:
 
+int adder(int x, int y) {
+  return TWO + x + y;
+}
+
 void exam_func(int value) {
   const int THREE = 3;
-  #pragma ifswitch rearrange
+#pragma ifswitch rearrange
   switch (value) {
     case 1: {
       // might create a variable in this scope
       something_1();
       printf("you got a 1\n");
-      printf("hello TWO is %d\n", TWO);
       break;
     }
 
 #ifdef HAVE_TWO
-    LOLMAX(TWO)
+      LOLMAX(TWO)
       something_2();
       printf("you got a 2\n");
       printf("hello TWO is %d\n", TWO);
@@ -59,9 +63,11 @@ void exam_func(int value) {
 int main(int argc, char **argv) {
   printf("This is the modded example\n");
   exam_func(1);
-  exam_func(2);
+main_mid:
+  exam_func(abcd);
   exam_func(3);
   exam_func(0);
   exam_func(8);
+main_end:
   return 0;
 }

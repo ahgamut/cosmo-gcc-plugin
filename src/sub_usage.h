@@ -2,6 +2,12 @@
 #define SUB_USAGE_H
 #include "headers.h"
 
+enum SubstType {
+    UNKNOWN = 0,
+    SW_CASE = 1,
+    INITVAL = 2
+};
+
 struct _subu_node {
   /* a node indicating that an ifswitch substitution has occurred.
    *
@@ -21,14 +27,14 @@ struct _subu_node {
    * no subu_nodes allocated.
    */
   location_t loc;
-  int in_switch;
+  SubstType tp;
   char *name;
   struct _subu_node *next;
 };
 
 typedef struct _subu_node subu_node;
 
-subu_node *build_subu(const location_t, const char *, unsigned int, int);
+subu_node *build_subu(const location_t, const char *, unsigned int, SubstType);
 void delete_subu(subu_node *);
 
 struct _subu_list {
@@ -43,8 +49,9 @@ typedef struct _subu_list subu_list;
 subu_list *init_subu_list();
 
 void add_subu_elem(subu_list *, subu_node *);
-int check_subu_elem(subu_list *, location_t);
+int check_loc_in_bound(subu_list *, location_t);
 int valid_subu_bounds(subu_list *, location_t, location_t);
+int mark_subu_elem(subu_list *, location_t, subu_node **);
 int get_subu_elem(subu_list *, location_t, subu_node **);
 void remove_subu_elem(subu_list *, subu_node *);
 void pop_subu_list(subu_list *);

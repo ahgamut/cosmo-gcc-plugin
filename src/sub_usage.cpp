@@ -19,33 +19,34 @@
 #include "sub_usage.h"
 
 subu_node *build_subu(const location_t loc, const char *name,
-                      unsigned int namelen, int in_switch) {
+                      unsigned int namelen, SubstType tp) {
   /* xmalloc because malloc is poisoned by gcc-plugin's system.h */
   subu_node *res = (subu_node *)xmalloc(sizeof(subu_node));
   res->next = NULL;
   res->loc = loc;
   res->name = xstrndup(name, namelen);
-  res->in_switch = in_switch;
+  res->tp = tp;
   DEBUGF("allocated subu_node at %p\n", res);
   return res;
 };
 
 void delete_subu(subu_node *node) {
+  DEBUGF("freeing subu_node at %p, %u,%u\n", node, LOCATION_LINE(node->loc),
+         LOCATION_COLUMN(node->loc));
   node->loc = 0x0;
-  node->in_switch = 0;
   free(node->name);
   node->next = NULL;
-  DEBUGF("freeing subu_node at %p\n", node);
+  node->tp = UNKNOWN;
   free(node);
 }
 
 subu_list *init_subu_list() {
-  subu_list *res = (subu_list *)xmalloc(sizeof(subu_list)); /* allocation 3 */
+  subu_list *res = (subu_list *)xmalloc(sizeof(subu_list));
   res->head = NULL;
   res->count = 0;
   res->start = 0;
   res->end = 0;
-  DEBUGF("allocated subu_node at %p\n", res);
+  DEBUGF("allocated subu_list at %p\n", res);
   return res;
 }
 
@@ -53,11 +54,11 @@ static void recount_subu_list(subu_list *list) {
   int i = 0;
   location_t s = MAX_LOCATION_T;
   location_t e = 0;
-  subu_node *it = list->head;
-  for (; it != NULL; it = it->next) {
+  subu_node *it;
+  for (it = list->head; it != NULL; it = it->next) {
     i += 1;
     /* is it possible to compare for s and e? */
-    if (LOCATION_BEFORE(it->loc, s)) s = it->loc;
+    if (s == MAX_LOCATION_T || LOCATION_BEFORE(it->loc, s)) s = it->loc;
     if (LOCATION_AFTER(it->loc, e)) e = it->loc;
   }
   if (s > e) {
@@ -102,7 +103,7 @@ int valid_subu_bounds(subu_list *list, location_t start, location_t end) {
   return 0;
 }
 
-int check_subu_elem(subu_list *list, location_t loc) {
+int check_loc_in_bound(subu_list *list, location_t loc) {
   /* return 1 if loc is within the bounds */
   if (LOCATION_BEFORE(list->start, loc) && LOCATION_AFTER(list->end, loc)) {
     return 1;

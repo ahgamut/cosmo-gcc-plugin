@@ -18,115 +18,136 @@
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "ifswitch.h"
 
-#define FUNC_CALL_AS_TREE(fname) lookup_name(get_identifier((fname)))
-#define STRING_AS_TREE(str)      build_string_literal(strlen((str)) + 1, (str))
+struct context {
+  subu_list *list;
+  subu_list *special;
+  tree cur;
+  tree prev;
+};
 
-tree get_magic_identifier(char *s) {
-  char *result = (char *)xmalloc(strlen("__tmp_ifs_") + strlen(s) + 1);
-  strcpy(result, "__tmp_ifs_");
-  strcat(result, s);
-  tree t = lookup_name(get_identifier(result));
-  free(result);
-  return t;
-}
-
-tree insert_case_count(tree swexpr, subu_list *list) {
-  int case_count = 0, break_count = 0;
-  tree stmt = SWITCH_STMT_BODY(swexpr);
-  tree tmp = NULL;
-  char dest[64] = {0};
+tree check_usage(tree *tp, int *check_subtree, void *data) {
+  context *ctx = (context *)(data);
+  tree t = *tp;
+  tree z;
   subu_node *use = NULL;
-  for (auto i = tsi_start(stmt); !tsi_end_p(i); tsi_next(&i)) {
-    tmp = tsi_stmt(i);
-    if (TREE_CODE(tsi_stmt(i)) == CASE_LABEL_EXPR) {
-      case_count += 1;
-      // DEBUGF("location of this case is %u\n", EXPR_LOCATION(tmp));
-      if (CASE_LOW(tmp) != NULL_TREE && CASE_HIGH(tmp) == NULL_TREE) {
-        /* this is a case label */
-        if (get_subu_elem(list, EXPR_LOCATION(tmp), &use) &&
-            use->in_switch == 1) {
-          tree vx = get_magic_identifier(use->name);
-          int z = tree_to_shwi(DECL_INITIAL(vx));
-          DEBUGF("hello pls %d %x\n", z, z);
-          debug_tree(DECL_INITIAL(vx));
-          remove_subu_elem(list, use);
-          use = NULL;
+  location_t loc = EXPR_LOCATION(t);
+
+  if (ctx->list->count == 0) {
+    DEBUGF("substitutions complete\n");
+    *check_subtree = 0;
+    return NULL_TREE;
+  }
+
+  if (check_loc_in_bound(ctx->list, loc)) {
+    if (get_subu_elem(ctx->list, loc, &use)) {
+      /* we know for sure one of our macro substitutions
+       * has been executed at the location loc */
+      DEBUGF("found mark at %u,%u in a %s\n", LOCATION_LINE(loc),
+             LOCATION_COLUMN(loc), get_tree_code_str(t));
+      if (TREE_CODE(t) == CASE_LABEL_EXPR /* this is a case */
+          && CASE_LOW(t) != NULL_TREE     /* not a default */
+          && CASE_HIGH(t) == NULL_TREE    /* not a x..y range */
+          && tree_to_shwi(CASE_LOW(t)) == get_value_of_const(use->name)
+          /* the case is the one we substituted */) {
+        DEBUGF("this IS a case label we substituted\n");
+        debug_tree(CASE_LOW(t));
+        add_subu_elem(ctx->special, build_subu(use->loc, use->name,
+                                               strlen(use->name), SW_CASE));
+        remove_subu_elem(ctx->list, use);
+      } else if (TREE_CODE(t) == CALL_EXPR) {
+      check_call_args:
+        call_expr_arg_iterator it;
+        tree arg = NULL_TREE;
+        int i = 0;
+        int rep = -1;
+        FOR_EACH_CALL_EXPR_ARG(arg, it, t) {
+          DEBUGF("arg %d is %s\n", i, get_tree_code_str(arg));
+          if (TREE_CODE(arg) == INTEGER_CST &&
+              tree_to_shwi(arg) == get_value_of_const(use->name)) {
+            DEBUGF("yup this is the constant we want\n");
+            rep = i;
+            break;
+          }
+          i += 1;
         }
-        DEBUGF("location of the label is %u %u\n", EXPR_LOC_LINE(tmp),
-               EXPR_LOC_COL(tmp));
-        auto sr = EXPR_LOCATION(tmp);
-        debug_tree(CASE_LOW(tmp));
-        debug_tree(CASE_LABEL(tmp));
-        debug_tree(CASE_CHAIN(tmp));
+        if (rep != -1) {
+          DEBUGF("replace here pls\n");
+          CALL_EXPR_ARG(t, rep) =
+              build1(NOP_EXPR, integer_type_node, VAR_NAME_AS_TREE(use->name));
+          // debug_tree(t);
+          remove_subu_elem(ctx->list, use);
+          use = NULL;
+          if (get_subu_elem(ctx->list, loc, &use)) {
+            /* there is another argument of this call
+             * that also had one of our macro expansions */
+            goto check_call_args;
+          }
+        }
+      } else {
+      check_expr_args:
+        DEBUGF("this contains a substitution and it is... a %s?\n",
+               get_tree_code_str(t));
+        DEBUGF("how many operands do you have? %d\n", TREE_OPERAND_LENGTH(t));
+        tree arg = NULL_TREE;
+        int i = 0;
+        int n = TREE_OPERAND_LENGTH(t);
+        int rep = -1;
+        for (i = 0; i < n; ++i) {
+          arg = TREE_OPERAND(t, i);
+          DEBUGF("arg %d is %s\n", i, get_tree_code_str(arg));
+          if (TREE_CODE(arg) == INTEGER_CST &&
+              tree_to_shwi(arg) == get_value_of_const(use->name)) {
+            DEBUGF("yup this is the constant we want\n");
+            rep = i;
+            break;
+          }
+        }
+        if (rep != -1) {
+          DEBUGF("replace here pls\n");
+          TREE_OPERAND(t, rep) =
+              build1(NOP_EXPR, integer_type_node, VAR_NAME_AS_TREE(use->name));
+          // debug_tree(t);
+          remove_subu_elem(ctx->list, use);
+          use = NULL;
+          if (get_subu_elem(ctx->list, loc, &use)) {
+            /* there is another argument of this expression
+             * that also had one of our macro expansions */
+            goto check_expr_args;
+          }
+        }
       }
-    } else if (TREE_CODE(tsi_stmt(i)) == BREAK_STMT) {
-      break_count += 1;
-    } else {
-      DEBUGF("%s: inside switch body %u\n", get_tree_code_str(tmp),
-             EXPR_LOC_LINE(tmp));
-      if (get_subu_elem(list, EXPR_LOCATION(tmp), &use)) {
-        tree vx = get_magic_identifier(use->name);
-        tree raw = DECL_INITIAL(vx);
-        tree actual = lookup_name(get_identifier(use->name));
-        int z = tree_to_shwi(DECL_INITIAL(vx));
-        /* This BREAKS EVERYTHING,
-         * but we get what we want :P */
-        /* (*raw) = *actual; */
-        auto tmp2 = substitute_in_expr(tmp, DECL_INITIAL(vx), actual);
-        debug_tree(actual);
-        DEBUGF("\nREPLACE hello pls %d\n", EXPR_LOCATION(tmp), use->loc, z);
-        debug_tree(tmp2);
-        remove_subu_elem(list, use);
-        use = NULL;
-      }
+      ctx->cur = t;
+      return NULL_TREE;
     }
   }
-  snprintf(dest, sizeof(dest), "above switch had %d cases and %d breaks\n",
-           case_count, break_count);
-  return build_call_expr(FUNC_CALL_AS_TREE("printf"), 1, STRING_AS_TREE(dest));
+
+  ctx->prev = t;
+  return NULL_TREE;
 }
 
-void process_switch(tree *swptr, subu_list *list) {
-  tree swexpr = *swptr;
-  /* swexpr is basically a switch statement as a GCC GENERIC AST */
-  printf("we are in the switch statement\n");
-  printf("type is\n");
-  debug_tree(SWITCH_STMT_TYPE(swexpr));
-  printf("condition is\n");
-  debug_tree(SWITCH_STMT_COND(swexpr));
-  printf("body is\n");
-  process_stmt(&SWITCH_STMT_BODY(swexpr), list);
-  printf("scope is\n");
-  debug_tree(SWITCH_STMT_SCOPE(swexpr));
-  *swptr = insert_case_count(*swptr, list);
-}
-
-void process_stmt(tree *sptr, subu_list *list) {
+void process_body(tree *sptr, subu_list *list) {
   tree stmt = *sptr;
-  source_range rng = EXPR_LOCATION_RANGE(stmt);
-  tree temp;
-  if (list->count == 0) {
-    DEBUGF("no substitutions made in %s\n", IDENTIFIER_NAME(stmt));
+  context myctx;
+  myctx.list = list;
+  myctx.special = init_subu_list();
+  myctx.prev = stmt;
+  myctx.cur = NULL_TREE;
+  walk_tree_without_duplicates(sptr, check_usage, &myctx);
+
+  int errcount = 0;
+  /* now at this stage, all uses of our macros have been
+   * fixed, EXCEPT the case labels. Let's confirm that: */
+  for (auto it = myctx.special->head; it; it = it->next) {
+    if (it->tp == UNKNOWN) {
+      error_at(it->loc, "invalid substitution of constant\n");
+      errcount += 1;
+    }
+  }
+  if (errcount != 0) {
+    delete_subu_list(myctx.special);
     return;
   }
-  switch (TREE_CODE(stmt)) {
-    case BIND_EXPR:
-      temp = BIND_EXPR_BODY(stmt);
-      process_stmt(&temp, list);
-      break;
-    case STATEMENT_LIST:
-      for (auto i = tsi_start(stmt); !tsi_end_p(i); tsi_next(&i)) {
-        process_stmt(tsi_stmt_ptr(i), list);
-        if (TREE_CODE(tsi_stmt(i)) == SWITCH_STMT) {
-          tsi_delink(&i);
-        }
-      }
-      break;
-    case SWITCH_STMT:
-      process_switch(sptr, list);
-      break;
-    default:
-      printf("did not process %s\n", get_tree_code_str(stmt));
-      break;
-  }
+  /* now we can do what we want */
+  delete_subu_list(myctx.special);
+  myctx.special = NULL;
 }
