@@ -8,16 +8,13 @@ extern const int TWO;
 extern const int THREE;
 
 void exam_func(int value) {
-  if (1 == value)
-    goto __plugin_switch_case_1;
-  else if (TWO == value)
-    goto __plugin_switch_case_TWO;
-  else if (THREE == value)
-    goto __plugin_switch_case_THREE;
-  else if (0 == value)
-    goto __plugin_switch_case_0;
-  else
-    goto __plugin_switch_default;
+  if (1 == value) goto __plugin_switch_case_1;
+  if (TWO == value) goto __plugin_switch_case_TWO;
+  if (THREE == value) goto __plugin_switch_case_THREE;
+  if (19 <= value && 27 >= value) goto __plugin_switch_case_FOUR;
+  if (0 == value) goto __plugin_switch_case_0;
+
+  goto __plugin_switch_default;
 
   {
   __plugin_switch_case_1 : {
@@ -35,12 +32,17 @@ void exam_func(int value) {
     printf("you got a 3\n");
     goto __plugin_switch_end;
 
+  __plugin_switch_case_FOUR:
+    printf("sorry you don't get a number\n");
+    printf("hello TWO is %d\n", TWO);
+    goto __plugin_switch_end;
+
   __plugin_switch_case_0:
     something_0();
     // fall-through
 
   __plugin_switch_default:
-    printf("you got a %d\n", value);
+    printf("default you got a %d\n", value);
     goto __plugin_switch_end;
   }
 __plugin_switch_end:;
@@ -53,10 +55,12 @@ __plugin_switch_end:;
 
 int main(int argc, char **argv) {
   printf("This is what I expect after modding\n");
+  printf("hello TWO is %d\n", TWO);
   exam_func(1);
   exam_func(2);
   exam_func(3);
   exam_func(0);
   exam_func(8);
+  exam_func(22);
   return 0;
 }

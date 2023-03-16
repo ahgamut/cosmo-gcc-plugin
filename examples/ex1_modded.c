@@ -22,9 +22,53 @@ int adder(int x, int y) {
   return TWO + x + y + TWO;
 }
 
+void exam_func0(int value) {
+  const int THREE = 3;
+  if (1 == value)
+    goto __plugin_switch_case_1;
+  else if (TWO == value)
+    goto __plugin_switch_case_TWO;
+  else if (3 == value)
+    goto __plugin_switch_case_THREE;
+  else if (0 == value)
+    goto __plugin_switch_case_0;
+  else
+    goto __plugin_switch_default;
+
+  {
+  __plugin_switch_case_1 : {
+    something_1();
+    printf("you got a 1\n");
+    goto __plugin_switch_end;
+  }
+
+  __plugin_switch_case_TWO:
+    something_2();
+    printf("you got a 2\n");
+
+  __plugin_switch_case_THREE:
+    something_3();
+    printf("you got a 3\n");
+    goto __plugin_switch_end;
+
+  __plugin_switch_case_0:
+    something_0();
+    // fall-through
+
+  __plugin_switch_default:
+    printf("you got a %d\n", value);
+    goto __plugin_switch_end;
+  }
+__plugin_switch_end:;
+  ;
+
+  // rest of your code after the switch is unchanged
+  printf("DONE WITH SWITCH\n");
+  printf("----------------\n");
+}
+
 void exam_func(int value) {
   const int THREE = 3;
-#pragma ifswitch rearrange
   switch (value) {
     case 1: {
       // might create a variable in this scope
@@ -37,7 +81,6 @@ void exam_func(int value) {
       LOLMAX(TWO)
       something_2();
       printf("you got a 2\n");
-      printf("hello TWO is %d\n", TWO);
       // fall-through
 #endif
 
@@ -64,13 +107,12 @@ void exam_func(int value) {
 
 int main(int argc, char **argv) {
   printf("This is the modded example\n");
-  printf("adder: %d\n", adder(2,3));
+  printf("hello TWO is %d\n", TWO);
   exam_func(1);
-main_mid:
-  exam_func(abcd);
+  exam_func(2);
   exam_func(3);
   exam_func(0);
   exam_func(8);
-main_end:
+  exam_func(22);
   return 0;
 }

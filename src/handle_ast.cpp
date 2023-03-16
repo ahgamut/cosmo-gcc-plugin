@@ -31,10 +31,12 @@ void handle_pre_genericize(void *gcc_data, void *user_data) {
     /* this function is defined within the file I'm processing */
     DEBUGF("pre-genericize calling %s\n", IDENTIFIER_NAME(t));
     t2 = DECL_SAVED_TREE(t);
-    if (!strcmp(IDENTIFIER_NAME(t), "main")) {
+    process_body(&t2, list);
+    if (!strcmp(IDENTIFIER_NAME(t), "exam_func0")) {
       debug_tree(t2);
     }
-    process_body(&t2, list);
-    // debug_tree(DECL_SAVED_TREE(t));
+    if (!strcmp(IDENTIFIER_NAME(t), "exam_func")) {
+      debug_tree(t2);
+    }  // debug_tree(DECL_SAVED_TREE(t));
   }
 }
