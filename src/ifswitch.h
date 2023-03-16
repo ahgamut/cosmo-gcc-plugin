@@ -18,6 +18,7 @@ void replace_usage(tree *, int *, void *);
 const char *get_tree_code_str(tree);
 int get_value_of_const(char *);
 tree get_ifsw_identifier(char *);
+int check_magic_equal(tree, char *);
 
 void handle_start_tu(void *, void *);
 void handle_finish_tu(void *, void *);

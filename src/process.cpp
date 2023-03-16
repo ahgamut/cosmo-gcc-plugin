@@ -44,6 +44,7 @@ tree build_modded_exit_label(unsigned int count) {
 }
 
 tree build_modded_if_stmt(tree condition) {
+  /* TODO: this */
   return NULL_TREE;
 }
 
@@ -58,6 +59,7 @@ void load_cases_and_conditions(tree swexpr, vec<tree> *&ifs,
   char case_str[72] = {0};
 
   subu_node *use = NULL;
+  unsigned long i = 0;
   for (auto it = tsi_start(swbody); !tsi_end_p(it); tsi_next(&it)) {
     t = tsi_stmt(it);
     if (TREE_CODE(t) == CASE_LABEL_EXPR) {
@@ -69,7 +71,7 @@ void load_cases_and_conditions(tree swexpr, vec<tree> *&ifs,
         /* a case label */
         if (get_subu_elem(list, EXPR_LOCATION(t), &use)
             /* the case is on a line we substituted */
-            && tree_to_shwi(CASE_LOW(t)) == get_value_of_const(use->name)
+            && check_magic_equal(CASE_LOW(t), use->name)
             /* the case value is the one we substituted */) {
           remove_subu_elem(list, use);
           case_label =
@@ -78,7 +80,7 @@ void load_cases_and_conditions(tree swexpr, vec<tree> *&ifs,
               EQ_EXPR, void_type_node, swcond, get_identifier(use->name))));
         } else {
           /* a case label that we didn't substitute */
-          snprintf(case_str, sizeof(case_str), "%x", tree_to_shwi(CASE_LOW(t)));
+          snprintf(case_str, sizeof(case_str), "%lx_", i);
           case_label =
               build_modded_case_label(count, case_str, EXPR_LOCATION(t));
           ifs->safe_push(build_modded_if_stmt(
@@ -88,13 +90,13 @@ void load_cases_and_conditions(tree swexpr, vec<tree> *&ifs,
       } else {
         /* CASE_LOW(t) != NULL_TREE && CASE_HIGH(t) != NULL_TREE */
         /* this is a case x .. y sort of range */
-        snprintf(case_str, sizeof(case_str), "%x_%x", tree_to_shwi(CASE_LOW(t)),
-                 tree_to_shwi(CASE_HIGH(t)));
+        snprintf(case_str, sizeof(case_str), "%lx_", i);
         case_label = build_modded_case_label(count, case_str, EXPR_LOCATION(t));
         case_labels->safe_push(case_label);
       }
     }
     case_label = NULL_TREE;
+    ++i;
   }
 }
 
@@ -122,7 +124,7 @@ tree build_modded_switch_stmt(tree swexpr, subu_list *list) {
                         &use)            /* on a line we substituted */
           && CASE_LOW(*tp) != NULL_TREE  /* not a x..y range */
           && CASE_HIGH(*tp) == NULL_TREE /* not a default */
-          && tree_to_shwi(CASE_LOW(*tp)) == get_value_of_const(use->name)
+          && check_magic_equal(CASE_LOW(*tp), use->name)
           /* the case is the one we substituted */) {
         glitch_count += 1;
         remove_subu_elem(list, use);
@@ -157,8 +159,11 @@ int count_mods_in_switch(tree swexpr, subu_list *list) {
                         &use)          /* on a line we substituted */
           && CASE_LOW(t) != NULL_TREE  /* not a x..y range */
           && CASE_HIGH(t) == NULL_TREE /* not a default */
-          && tree_to_shwi(CASE_LOW(t)) == get_value_of_const(use->name)
+          && check_magic_equal(CASE_LOW(t), use->name)
           /* the case is the one we substituted */) {
+        DEBUGF("we substituted a case label at %u,%u\n", EXPR_LOC_LINE(t),
+               EXPR_LOC_COL(t));
+        // debug_tree(CASE_LOW(t));
         modcount += 1;
       }
     }
@@ -212,17 +217,7 @@ tree check_usage(tree *tp, int *check_subtree, void *data) {
        * has been executed at the location loc */
       DEBUGF("found mark at %u,%u in a %s\n", LOCATION_LINE(loc),
              LOCATION_COLUMN(loc), get_tree_code_str(t));
-      if (TREE_CODE(t) == CASE_LABEL_EXPR /* this is a case */
-          && CASE_LOW(t) != NULL_TREE     /* not a default */
-          && CASE_HIGH(t) == NULL_TREE    /* not a x..y range */
-          && tree_to_shwi(CASE_LOW(t)) == get_value_of_const(use->name)
-          /* the case is the one we substituted */) {
-        DEBUGF("this IS a case label we substituted\n");
-        debug_tree(CASE_LOW(t));
-        add_subu_elem(ctx->special, build_subu(use->loc, use->name,
-                                               strlen(use->name), SW_CASE));
-        remove_subu_elem(ctx->list, use);
-      } else if (TREE_CODE(t) == CALL_EXPR) {
+      if (TREE_CODE(t) == CALL_EXPR) {
       check_call_args:
         call_expr_arg_iterator it;
         tree arg = NULL_TREE;
@@ -231,7 +226,7 @@ tree check_usage(tree *tp, int *check_subtree, void *data) {
         FOR_EACH_CALL_EXPR_ARG(arg, it, t) {
           DEBUGF("arg %d is %s\n", i, get_tree_code_str(arg));
           if (TREE_CODE(arg) == INTEGER_CST &&
-              tree_to_shwi(arg) == get_value_of_const(use->name)) {
+              check_magic_equal(arg, use->name)) {
             DEBUGF("yup this is the constant we want\n");
             rep = i;
             break;
@@ -264,13 +259,13 @@ tree check_usage(tree *tp, int *check_subtree, void *data) {
           arg = TREE_OPERAND(t, i);
           DEBUGF("arg %d is %s\n", i, get_tree_code_str(arg));
           if (TREE_CODE(arg) == INTEGER_CST &&
-              tree_to_shwi(arg) == get_value_of_const(use->name)) {
+              check_magic_equal(arg, use->name)) {
             DEBUGF("yup this is the constant we want\n");
             rep = i;
             break;
           }
         }
-        if (rep != -1) {
+        if (rep != -1 && TREE_CODE(t) != CASE_LABEL_EXPR) {
           DEBUGF("replace here pls\n");
           TREE_OPERAND(t, rep) =
               build1(NOP_EXPR, integer_type_node, VAR_NAME_AS_TREE(use->name));

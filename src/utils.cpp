@@ -45,3 +45,9 @@ int get_value_of_const(char *name) {
   int z = tree_to_shwi(DECL_INITIAL(vx));
   return z;
 }
+
+int check_magic_equal(tree value, char *varname) {
+  tree vx = get_ifsw_identifier(varname);
+  return tree_int_cst_equal(value, DECL_INITIAL(vx));
+}
+
