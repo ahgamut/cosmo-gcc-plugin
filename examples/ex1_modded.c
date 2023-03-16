@@ -19,7 +19,7 @@ extern const int TWO;
 #define LOLMAX(X) case X:
 
 int adder(int x, int y) {
-  return TWO + x + y;
+  return TWO + x + y + TWO;
 }
 
 void exam_func(int value) {

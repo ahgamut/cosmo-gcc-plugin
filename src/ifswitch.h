@@ -12,6 +12,7 @@ void process_body(tree *, subu_list *);
 
 /* in build.cpp */
 tree build_modded_switch_stmt(tree, subu_list *);
+void replace_usage(tree *, int *, void *);
 
 /* in utils.cpp */
 const char *get_tree_code_str(tree);
