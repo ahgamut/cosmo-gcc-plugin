@@ -23,15 +23,14 @@
 
 struct context {
   subu_list *list;
-  subu_list *special;
-  tree cur;
-  tree prev;
+  unsigned int swcount;
+  /* count number of switch statements rewritten */
 };
 
-tree build_modded_case_label(unsigned int count, const char *case_str,
-                             location_t loc = UNKNOWN_LOCATION) {
+tree build_modded_label(unsigned int swcount, const char *case_str,
+                        location_t loc = UNKNOWN_LOCATION) {
   char dest[96] = {0};
-  snprintf(dest, sizeof(dest), "__tmp_ifs_%u_%s", count, case_str);
+  snprintf(dest, sizeof(dest), "__tmp_ifs_%u_%s", swcount, case_str);
   tree lab = build_decl(loc, LABEL_DECL, get_identifier(dest), void_type_node);
   /* gcc's GIMPLE needs to know that this label
    * is within the current function declaration */
@@ -39,19 +38,16 @@ tree build_modded_case_label(unsigned int count, const char *case_str,
   return build1(LABEL_EXPR, void_type_node, lab);
 }
 
-tree build_modded_exit_label(unsigned int count) {
-  return build_modded_case_label(count, "__end");
+tree build_modded_exit_label(unsigned int swcount) {
+  return build_modded_label(swcount, "__end");
 }
 
 tree build_modded_if_stmt(tree condition, tree then_clause) {
-  tree body = alloc_stmt_list();
-  append_to_statement_list(then_clause, &body);
-  return build3(COND_EXPR, void_type_node, condition, body, NULL_TREE);
+  return build3(COND_EXPR, void_type_node, condition, then_clause, NULL_TREE);
 }
 
 tree modded_case_label(tree t, unsigned int i, tree swcond, vec<tree> *&ifs,
-                       subu_list *list, unsigned int count,
-                       tree *default_label) {
+                       context *ctx, tree *default_label) {
   // debug_tree(t);
   tree result;
   subu_node *use = NULL;
@@ -60,26 +56,26 @@ tree modded_case_label(tree t, unsigned int i, tree swcond, vec<tree> *&ifs,
   if (CASE_LOW(t) == NULL_TREE) {
     DEBUGF("default case\n");
     /* default label of the switch case, needs to be last */
-    result = build_modded_case_label(count, "__dflt", EXPR_LOCATION(t));
+    result = build_modded_label(ctx->swcount, "__dflt", EXPR_LOCATION(t));
     *default_label = result;
   } else if (CASE_LOW(t) != NULL_TREE && CASE_HIGH(t) == NULL_TREE) {
     /* a case label */
-    if (get_subu_elem(list, EXPR_LOCATION(t), &use)
+    if (get_subu_elem(ctx->list, EXPR_LOCATION(t), &use)
         /* the case is on a line we substituted */
         && check_magic_equal(CASE_LOW(t), use->name)
         /* the case value is the one we substituted */) {
       DEBUGF("modded case\n");
-      result = build_modded_case_label(count, use->name, EXPR_LOCATION(t));
+      result = build_modded_label(ctx->swcount, use->name, EXPR_LOCATION(t));
       ifs->safe_push(build_modded_if_stmt(
           build2(EQ_EXPR, integer_type_node, swcond,
                  VAR_NAME_AS_TREE(use->name)),
           build1(GOTO_EXPR, void_type_node, LABEL_EXPR_LABEL(result))));
-      remove_subu_elem(list, use);
+      remove_subu_elem(ctx->list, use);
     } else {
       /* a case label that we didn't substitute */
       DEBUGF("unmodded case\n");
       snprintf(case_str, sizeof(case_str), "%lx_", i);
-      result = build_modded_case_label(count, case_str, EXPR_LOCATION(t));
+      result = build_modded_label(ctx->swcount, case_str, EXPR_LOCATION(t));
       ifs->safe_push(build_modded_if_stmt(
           build2(EQ_EXPR, integer_type_node, swcond, CASE_LOW(t)),
           build1(GOTO_EXPR, void_type_node, LABEL_EXPR_LABEL(result))));
@@ -89,7 +85,7 @@ tree modded_case_label(tree t, unsigned int i, tree swcond, vec<tree> *&ifs,
     /* CASE_LOW(t) != NULL_TREE && CASE_HIGH(t) != NULL_TREE */
     /* this is a case x .. y sort of range */
     snprintf(case_str, sizeof(case_str), "%lx_", i);
-    result = build_modded_case_label(count, case_str, EXPR_LOCATION(t));
+    result = build_modded_label(ctx->swcount, case_str, EXPR_LOCATION(t));
     ifs->safe_push(build_modded_if_stmt(
         build2(TRUTH_ANDIF_EXPR, integer_type_node,
                build2(GE_EXPR, integer_type_node, swcond, CASE_LOW(t)),
@@ -99,7 +95,7 @@ tree modded_case_label(tree t, unsigned int i, tree swcond, vec<tree> *&ifs,
   return result;
 }
 
-tree build_modded_switch_stmt(tree swexpr, subu_list *list) {
+tree build_modded_switch_stmt(tree swexpr, context *ctx) {
   int case_count = 0, break_count = 0;
   int has_default = 0;
 
@@ -107,12 +103,11 @@ tree build_modded_switch_stmt(tree swexpr, subu_list *list) {
   tree swbody = SWITCH_STMT_BODY(swexpr);
   tree *tp = NULL;
   char dest[64] = {0};
-  unsigned int count = 1;
 
   vec<tree> *ifs;
   vec_alloc(ifs, 0);
 
-  tree exit_label = build_modded_exit_label(count);
+  tree exit_label = build_modded_exit_label(ctx->swcount);
   tree default_label = NULL_TREE;
 
   for (auto it = tsi_start(swbody); !tsi_end_p(it); tsi_next(&it)) {
@@ -121,8 +116,8 @@ tree build_modded_switch_stmt(tree swexpr, subu_list *list) {
       case_count += 1;
       has_default = has_default || (CASE_LOW(*tp) == NULL_TREE);
       /* replace the case statement with a goto */
-      *tp = modded_case_label(*tp, case_count, swcond, ifs, list, count,
-                              &default_label);
+      *tp =
+          modded_case_label(*tp, case_count, swcond, ifs, ctx, &default_label);
     } else if (TREE_CODE(*tp) == BREAK_STMT) {
       break_count += 1;
       /* replace the break statement with a goto to the end */
@@ -130,6 +125,8 @@ tree build_modded_switch_stmt(tree swexpr, subu_list *list) {
     }
   }
   /* add all the if statements to the start of the switch body */
+  /* TODO: do we have to combine them via COND_EXPR_ELSE? why,
+   * is it not possible to just them as a list one after the other? */
   tree res;
   unsigned int zz = 0;
   if (ifs->length() > 0) {
@@ -144,6 +141,7 @@ tree build_modded_switch_stmt(tree swexpr, subu_list *list) {
   } else if (has_default && default_label != NULL_TREE) {
     res = build1(GOTO_EXPR, void_type_node, LABEL_EXPR_LABEL(default_label));
   } else {
+    /* this switch has no cases, and no default?! */
     error_at(EXPR_LOCATION(swcond), "what is this switch\n");
   }
   auto it = tsi_start(swbody);
@@ -156,22 +154,23 @@ tree build_modded_switch_stmt(tree swexpr, subu_list *list) {
   append_to_statement_list(build_empty_stmt(UNKNOWN_LOCATION), &swbody);
   append_to_statement_list(exit_label, &swbody);
   append_to_statement_list(build_empty_stmt(UNKNOWN_LOCATION), &swbody);
+  /*
   snprintf(dest, sizeof(dest),
            "above switch had %d cases replaced and %d breaks\n", case_count,
            break_count);
   append_to_statement_list(build_call_expr(VAR_NAME_AS_TREE("printf"), 1,
                                            BUILD_STRING_AS_TREE(dest)),
-                           &swbody);
+                           &swbody); */
 
   /* debug_tree(swbody); */
   return swbody;
 }
 
-int count_mods_in_switch(tree swexpr, subu_list *list) {
+int swcount_mods_in_switch(tree swexpr, subu_list *list) {
   tree body = SWITCH_STMT_BODY(swexpr);
   tree t = NULL;
   subu_node *use = NULL;
-  int modcount = 0;
+  int modswcount = 0;
   for (auto i = tsi_start(body); !tsi_end_p(i); tsi_next(&i)) {
     t = tsi_stmt(i);
     if (TREE_CODE(t) == CASE_LABEL_EXPR) {
@@ -184,11 +183,11 @@ int count_mods_in_switch(tree swexpr, subu_list *list) {
         DEBUGF("we substituted a case label at %u,%u\n", EXPR_LOC_LINE(t),
                EXPR_LOC_COL(t));
         // debug_tree(CASE_LOW(t));
-        modcount += 1;
+        modswcount += 1;
       }
     }
   }
-  return modcount;
+  return modswcount;
 }
 
 static source_range get_switch_bounds(tree sws) {
@@ -210,7 +209,7 @@ tree check_usage(tree *tp, int *check_subtree, void *data) {
   location_t loc = EXPR_LOCATION(t);
 
   if (ctx->list->count == 0) {
-    DEBUGF("substitutions complete\n");
+    /* DEBUGF("substitutions complete\n"); */
     *check_subtree = 0;
     return NULL_TREE;
   }
@@ -218,16 +217,17 @@ tree check_usage(tree *tp, int *check_subtree, void *data) {
   if (TREE_CODE(t) == SWITCH_STMT) {
     source_range rng = get_switch_bounds(t);
     if (valid_subu_bounds(ctx->list, rng.m_start, rng.m_finish) &&
-        count_mods_in_switch(t, ctx->list) > 0) {
+        swcount_mods_in_switch(t, ctx->list) > 0) {
       /* this is one of the switch statements
        * where we modified a case label */
       DEBUGF("modding the switch \n");
-      *tp = build_modded_switch_stmt(t, ctx->list);
+      *tp = build_modded_switch_stmt(t, ctx);
       DEBUGF("we modded it??\n");
       walk_tree_without_duplicates(tp, check_usage, ctx);
       /* due to the above call, I don't need to check
        * any subtrees from this current location */
       *check_subtree = 0;
+      ctx->swcount += 1;
     }
   }
 
@@ -299,42 +299,26 @@ tree check_usage(tree *tp, int *check_subtree, void *data) {
           }
         }
       }
-      ctx->cur = t;
       return NULL_TREE;
     }
   }
-
-  ctx->prev = t;
   return NULL_TREE;
 }
 
 void process_body(tree *sptr, subu_list *list) {
-  tree stmt = *sptr;
   context myctx;
   myctx.list = list;
-  myctx.special = init_subu_list();
-  myctx.prev = stmt;
-  myctx.cur = NULL_TREE;
-  walk_tree_without_duplicates(sptr, check_usage, &myctx);
+  myctx.swcount = 0;
 
+  walk_tree_without_duplicates(sptr, check_usage, &myctx);
   int errcount = 0;
   /* now at this stage, all uses of our macros have been
-   * fixed, EXCEPT the case labels. Let's confirm that: */
-  for (auto it = myctx.special->head; it; it = it->next) {
-    if (it->tp == UNKNOWN) {
-      error_at(it->loc, "invalid substitution of constant\n");
-      errcount += 1;
-    }
-  }
+   * fixed, INCLUDING case labels. Let's confirm that: */
   for (auto it = list->head; it; it->next) {
     error_at(it->loc, "unable to substitute constant\n");
     errcount += 1;
   }
   if (errcount != 0) {
-    delete_subu_list(myctx.special);
-    return;
+    clear_subu_list(list);
   }
-  /* now we can do what we want */
-  delete_subu_list(myctx.special);
-  myctx.special = NULL;
 }

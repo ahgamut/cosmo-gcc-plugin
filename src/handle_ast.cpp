@@ -32,11 +32,5 @@ void handle_pre_genericize(void *gcc_data, void *user_data) {
     DEBUGF("pre-genericize calling %s\n", IDENTIFIER_NAME(t));
     t2 = DECL_SAVED_TREE(t);
     process_body(&t2, list);
-    if (!strcmp(IDENTIFIER_NAME(t), "exam_func0")) {
-      debug_tree(t2);
-    }
-    if (!strcmp(IDENTIFIER_NAME(t), "exam_func")) {
-      debug_tree(t2);
-    }  // debug_tree(DECL_SAVED_TREE(t));
   }
 }
