@@ -174,7 +174,6 @@ int count_mods_in_switch(tree swexpr, subu_list *list) {
   for (auto i = tsi_start(body); !tsi_end_p(i); tsi_next(&i)) {
     t = tsi_stmt(i);
     if (TREE_CODE(t) == CASE_LABEL_EXPR) {
-      debug_tree(CASE_LOW(t));
       if (get_subu_elem(list, EXPR_LOCATION(t),
                         &use)          /* on a line we substituted */
           && CASE_LOW(t) != NULL_TREE  /* not a x..y range */
@@ -208,7 +207,12 @@ int build_modded_declaration(tree *dxpr, subu_node *use) {
   if (INTEGRAL_TYPE_P(TREE_TYPE(DECL_EXPR_DECL(*dxpr)))) {
     DEBUGF("fixing decl for an integer\n");
     tree res = alloc_stmt_list();
-    TREE_READONLY(DECL_EXPR_DECL(*dxpr)) = 0;
+    if (TREE_READONLY(DECL_EXPR_DECL(*dxpr))) {
+      error_at(EXPR_LOCATION(*dxpr), "cannot substitute this constant\n");
+      /* actually I can, but the issue is if one of gcc's optimizations
+       * perform constant folding(and they do), I don't know all the spots
+       * where this variable has been folded, so I can't substitute there */
+    }
     append_to_statement_list(*dxpr, &res);
     append_to_statement_list(
         build_modded_if_stmt(
