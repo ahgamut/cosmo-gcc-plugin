@@ -26,8 +26,11 @@ extern subu_list recorder;
 
 void handle_decl(void *gcc_data, void *user_data) {
   tree t = (tree)gcc_data;
-  if (DECL_INITIAL(t) != NULL && TREE_STATIC(t)) {
+  subu_list *list = (subu_list *)user_data;
+  if (DECL_INITIAL(t) != NULL && TREE_STATIC(t) &&
+      strncmp(IDENTIFIER_NAME(t), "__tmp_ifs_", strlen("__tmp_ifs_"))) {
     DEBUGF("handle_decl with %s\n", IDENTIFIER_NAME(t));
+    debug_tree(t);
   }
 }
 
