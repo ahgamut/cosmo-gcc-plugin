@@ -174,6 +174,7 @@ int count_mods_in_switch(tree swexpr, subu_list *list) {
   for (auto i = tsi_start(body); !tsi_end_p(i); tsi_next(&i)) {
     t = tsi_stmt(i);
     if (TREE_CODE(t) == CASE_LABEL_EXPR) {
+      debug_tree(CASE_LOW(t));
       if (get_subu_elem(list, EXPR_LOCATION(t),
                         &use)          /* on a line we substituted */
           && CASE_LOW(t) != NULL_TREE  /* not a x..y range */
@@ -199,6 +200,28 @@ static source_range get_switch_bounds(tree sws) {
   rng.m_start = rng1.m_start;
   rng.m_finish = rng2.m_finish;
   return rng;
+}
+
+int build_modded_declaration(tree *dxpr, subu_node *use) {
+  char chk[64];
+  // debug_tree(DECL_EXPR_DECL(*dxpr));
+  if (INTEGRAL_TYPE_P(TREE_TYPE(DECL_EXPR_DECL(*dxpr)))) {
+    DEBUGF("fixing decl for an integer\n");
+    tree res = alloc_stmt_list();
+    TREE_READONLY(DECL_EXPR_DECL(*dxpr)) = 0;
+    append_to_statement_list(*dxpr, &res);
+    append_to_statement_list(
+        build_modded_if_stmt(
+            build2(NE_EXPR, void_type_node, VAR_NAME_AS_TREE(use->name),
+                   DECL_EXPR_DECL(*dxpr)),
+            build2(MODIFY_EXPR, void_type_node, DECL_EXPR_DECL(*dxpr),
+                   VAR_NAME_AS_TREE(use->name))),
+        &res);
+    // debug_tree(res);
+    *dxpr = res;
+    return 1;
+  }
+  return 0;
 }
 
 tree check_usage(tree *tp, int *check_subtree, void *data) {
@@ -246,7 +269,12 @@ tree check_usage(tree *tp, int *check_subtree, void *data) {
        * or within the range rng */
       DEBUGF("found mark at %u,%u in a %s\n", LOCATION_LINE(loc),
              LOCATION_COLUMN(loc), get_tree_code_str(t));
-      if (TREE_CODE(t) == CALL_EXPR) {
+      if (TREE_CODE(t) == DECL_EXPR) {
+        if (build_modded_declaration(tp, use)) {
+          remove_subu_elem(ctx->list, use);
+          use = NULL;
+        }
+      } else if (TREE_CODE(t) == CALL_EXPR) {
       check_call_args:
         call_expr_arg_iterator it;
         tree arg = NULL_TREE;
@@ -254,8 +282,15 @@ tree check_usage(tree *tp, int *check_subtree, void *data) {
         int rep = -1;
         FOR_EACH_CALL_EXPR_ARG(arg, it, t) {
           DEBUGF("arg %d is %s\n", i, get_tree_code_str(arg));
+          // debug_tree(arg);
           if (TREE_CODE(arg) == INTEGER_CST &&
               check_magic_equal(arg, use->name)) {
+            DEBUGF("yup this is the constant we want\n");
+            rep = i;
+            break;
+          }
+          if (TREE_CODE(arg) == NOP_EXPR &&
+              TREE_OPERAND(arg, 0) == get_ifsw_identifier(use->name)) {
             DEBUGF("yup this is the constant we want\n");
             rep = i;
             break;
@@ -269,7 +304,8 @@ tree check_usage(tree *tp, int *check_subtree, void *data) {
           // debug_tree(t);
           remove_subu_elem(ctx->list, use);
           use = NULL;
-          if (get_subu_elem(ctx->list, loc, &use)) {
+          if (get_subu_elem(ctx->list, loc, &use) ||
+              get_subu_elem2(ctx->list, rng, &use)) {
             /* there is another argument of this call
              * that also had one of our macro expansions */
             goto check_call_args;
@@ -293,6 +329,12 @@ tree check_usage(tree *tp, int *check_subtree, void *data) {
             rep = i;
             break;
           }
+          if (TREE_CODE(arg) == NOP_EXPR &&
+              TREE_OPERAND(arg, 0) == get_ifsw_identifier(use->name)) {
+            DEBUGF("yup this is the constant we want\n");
+            rep = i;
+            break;
+          }
         }
         if (rep != -1 && TREE_CODE(t) != CASE_LABEL_EXPR) {
           DEBUGF("replace here pls\n");
@@ -301,7 +343,8 @@ tree check_usage(tree *tp, int *check_subtree, void *data) {
           // debug_tree(t);
           remove_subu_elem(ctx->list, use);
           use = NULL;
-          if (get_subu_elem(ctx->list, loc, &use)) {
+          if (get_subu_elem(ctx->list, loc, &use) ||
+              get_subu_elem2(ctx->list, rng, &use)) {
             /* there is another argument of this expression
              * that also had one of our macro expansions */
             goto check_expr_args;

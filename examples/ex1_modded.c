@@ -62,6 +62,7 @@ void exam_func(int value) {
 
 int main(int argc, char **argv) {
   printf("This is the modded example\n");
+  int LOL = TWO;
   printf("hello TWO is %d\n",
          /* hello I want a comment here */
          TWO);
@@ -71,5 +72,6 @@ int main(int argc, char **argv) {
   exam_func(0);
   exam_func(8);
   exam_func(22);
+  printf("bye LOL is %d\n", LOL);
   return 0;
 }

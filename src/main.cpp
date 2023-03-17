@@ -39,7 +39,6 @@ void handle_decl(void *gcc_data, void *user_data) {
       DEBUGF("this is just a static int, we can rewrite it %u,%u\n",
              LOCATION_LINE(DECL_SOURCE_LOCATION(t)),
              LOCATION_LINE(rng.m_finish));
-      DECL_INITIAL(t) = build_int_cst(integer_type_node, 0);
     }
   }
 }
