@@ -124,6 +124,20 @@ int get_subu_elem(subu_list *list, location_t loc, subu_node **node) {
   return 0;
 }
 
+int get_subu_elem2(subu_list *list, source_range rng, subu_node **node) {
+  /* *node is overwritten on returning 1 ie success */
+  /* returns the first node found within rng's bounds */
+  subu_node *it = list->head;
+  for (; it != NULL; it = it->next) {
+    if (LOCATION_BEFORE(rng.m_start, it->loc) &&
+        LOCATION_AFTER(rng.m_finish, it->loc)) {
+      *node = it;
+      return 1;
+    }
+  }
+  return 0;
+}
+
 void remove_subu_elem(subu_list *list, subu_node *node) {
   subu_node *cur, *prev;
   if (list->head != NULL) {

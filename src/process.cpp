@@ -166,7 +166,7 @@ tree build_modded_switch_stmt(tree swexpr, context *ctx) {
   return swbody;
 }
 
-int swcount_mods_in_switch(tree swexpr, subu_list *list) {
+int count_mods_in_switch(tree swexpr, subu_list *list) {
   tree body = SWITCH_STMT_BODY(swexpr);
   tree t = NULL;
   subu_node *use = NULL;
@@ -207,6 +207,7 @@ tree check_usage(tree *tp, int *check_subtree, void *data) {
   tree z;
   subu_node *use = NULL;
   location_t loc = EXPR_LOCATION(t);
+  source_range rng;
 
   if (ctx->list->count == 0) {
     /* DEBUGF("substitutions complete\n"); */
@@ -215,9 +216,9 @@ tree check_usage(tree *tp, int *check_subtree, void *data) {
   }
 
   if (TREE_CODE(t) == SWITCH_STMT) {
-    source_range rng = get_switch_bounds(t);
+    rng = get_switch_bounds(t);
     if (valid_subu_bounds(ctx->list, rng.m_start, rng.m_finish) &&
-        swcount_mods_in_switch(t, ctx->list) > 0) {
+        count_mods_in_switch(t, ctx->list) > 0) {
       /* this is one of the switch statements
        * where we modified a case label */
       DEBUGF("modding the switch \n");
@@ -231,10 +232,18 @@ tree check_usage(tree *tp, int *check_subtree, void *data) {
     }
   }
 
-  if (check_loc_in_bound(ctx->list, loc)) {
-    if (get_subu_elem(ctx->list, loc, &use)) {
+  rng = EXPR_LOCATION_RANGE(t);
+  if (TREE_CODE(t) == DECL_EXPR || TREE_CODE(t) == EXPR_STMT) {
+    DEBUGF("decl_expr %s at %u-%u\n", get_tree_code_str(t),
+           LOCATION_LINE(rng.m_start), LOCATION_LINE(rng.m_finish));
+  }
+  if (valid_subu_bounds(ctx->list, rng.m_start, rng.m_finish) ||
+      check_loc_in_bound(ctx->list, loc)) {
+    if (get_subu_elem(ctx->list, loc, &use) ||
+        get_subu_elem2(ctx->list, rng, &use)) {
       /* we know for sure one of our macro substitutions
-       * has been executed at the location loc */
+       * has been executed either at the location loc,
+       * or within the range rng */
       DEBUGF("found mark at %u,%u in a %s\n", LOCATION_LINE(loc),
              LOCATION_COLUMN(loc), get_tree_code_str(t));
       if (TREE_CODE(t) == CALL_EXPR) {
@@ -301,6 +310,8 @@ tree check_usage(tree *tp, int *check_subtree, void *data) {
       }
       return NULL_TREE;
     }
+    DEBUGF("got in but no use %s at %u-%u\n", get_tree_code_str(t),
+           LOCATION_LINE(rng.m_start), LOCATION_LINE(rng.m_finish));
   }
   return NULL_TREE;
 }
@@ -314,7 +325,7 @@ void process_body(tree *sptr, subu_list *list) {
   int errcount = 0;
   /* now at this stage, all uses of our macros have been
    * fixed, INCLUDING case labels. Let's confirm that: */
-  for (auto it = list->head; it; it->next) {
+  for (auto it = list->head; it; it = it->next) {
     error_at(it->loc, "unable to substitute constant\n");
     errcount += 1;
   }

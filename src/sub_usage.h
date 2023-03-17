@@ -2,11 +2,7 @@
 #define SUB_USAGE_H
 #include "headers.h"
 
-enum SubstType {
-    UNKNOWN = 0,
-    SW_CASE = 1,
-    INITVAL = 2
-};
+enum SubstType { UNKNOWN = 0, SW_CASE = 1, INITVAL = 2 };
 
 struct _subu_node {
   /* a node indicating that an ifswitch substitution has occurred.
@@ -53,6 +49,7 @@ int check_loc_in_bound(subu_list *, location_t);
 int valid_subu_bounds(subu_list *, location_t, location_t);
 int mark_subu_elem(subu_list *, location_t, subu_node **);
 int get_subu_elem(subu_list *, location_t, subu_node **);
+int get_subu_elem2(subu_list *, source_range, subu_node **);
 void remove_subu_elem(subu_list *, subu_node *);
 void pop_subu_list(subu_list *);
 void clear_subu_list(subu_list *);

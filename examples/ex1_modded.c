@@ -22,51 +22,6 @@ int adder(int x, int y) {
   return TWO + x + y + TWO;
 }
 
-void exam_func0(int value) {
-  const int THREE = 3;
-  if (1 == value)
-    goto __plugin_switch_case_1;
-  else if (TWO == value)
-    goto __plugin_switch_case_TWO;
-  else if (3 == value)
-    goto __plugin_switch_case_THREE;
-  else if (0 == value)
-    goto __plugin_switch_case_0;
-  else
-    goto __plugin_switch_default;
-
-  {
-  __plugin_switch_case_1 : {
-    something_1();
-    printf("you got a 1\n");
-    goto __plugin_switch_end;
-  }
-
-  __plugin_switch_case_TWO:
-    something_2();
-    printf("you got a 2\n");
-
-  __plugin_switch_case_THREE:
-    something_3();
-    printf("you got a 3\n");
-    goto __plugin_switch_end;
-
-  __plugin_switch_case_0:
-    something_0();
-    // fall-through
-
-  __plugin_switch_default:
-    printf("you got a %d\n", value);
-    goto __plugin_switch_end;
-  }
-__plugin_switch_end:;
-  ;
-
-  // rest of your code after the switch is unchanged
-  printf("DONE WITH SWITCH\n");
-  printf("----------------\n");
-}
-
 void exam_func(int value) {
   const int THREE = 3;
   switch (value) {
@@ -107,7 +62,9 @@ void exam_func(int value) {
 
 int main(int argc, char **argv) {
   printf("This is the modded example\n");
-  printf("hello TWO is %d\n", TWO);
+  printf("hello TWO is %d\n",
+         /* hello I want a comment here */
+         TWO);
   exam_func(1);
   exam_func(2);
   exam_func(3);
