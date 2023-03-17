@@ -27,8 +27,8 @@ extern subu_list recorder;
 void handle_decl(void *gcc_data, void *user_data) {
   tree t = (tree)gcc_data;
   subu_list *list = (subu_list *)user_data;
-  subu_node *use = NULL;
   if (DECL_INITIAL(t) != NULL && TREE_STATIC(t) &&
+      DECL_CONTEXT(t) == NULL_TREE &&
       strncmp(IDENTIFIER_NAME(t), "__tmp_ifs_", strlen("__tmp_ifs_"))) {
     auto rng = EXPR_LOCATION_RANGE(t);
     DEBUGF("handle_decl with %s\n", IDENTIFIER_NAME(t));
@@ -39,6 +39,7 @@ void handle_decl(void *gcc_data, void *user_data) {
       DEBUGF("this is just a static int, we can rewrite it %u,%u\n",
              LOCATION_LINE(DECL_SOURCE_LOCATION(t)),
              LOCATION_LINE(rng.m_finish));
+      process_body(&t, list);
     }
   }
 }

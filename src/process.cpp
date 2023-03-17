@@ -235,6 +235,7 @@ tree check_usage(tree *tp, int *check_subtree, void *data) {
   subu_node *use = NULL;
   location_t loc = EXPR_LOCATION(t);
   source_range rng;
+  rng = EXPR_LOCATION_RANGE(t);
 
   if (ctx->list->count == 0) {
     /* DEBUGF("substitutions complete\n"); */
@@ -259,8 +260,8 @@ tree check_usage(tree *tp, int *check_subtree, void *data) {
     }
   }
 
-  rng = EXPR_LOCATION_RANGE(t);
-  if (TREE_CODE(t) == DECL_EXPR || TREE_CODE(t) == EXPR_STMT) {
+  if (TREE_CODE(t) == VAR_DECL || TREE_CODE(t) == DECL_EXPR) {
+    loc = DECL_SOURCE_LOCATION(t);
     DEBUGF("decl_expr %s at %u-%u\n", get_tree_code_str(t),
            LOCATION_LINE(rng.m_start), LOCATION_LINE(rng.m_finish));
   }
