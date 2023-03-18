@@ -18,9 +18,6 @@
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "ifswitch.h"
 
-/* construct AST by function calls LOL */
-#define BUILD_STRING_AS_TREE(str) build_string_literal(strlen((str)) + 1, (str))
-
 struct context {
   subu_list *list;
   unsigned int swcount;
@@ -202,8 +199,7 @@ static source_range get_switch_bounds(tree sws) {
 }
 
 int build_modded_declaration(tree *dxpr, subu_node *use) {
-  char chk[64];
-  // debug_tree(DECL_EXPR_DECL(*dxpr));
+  char chk[128];
   tree dcl = DECL_EXPR_DECL(*dxpr);
   if (INTEGRAL_TYPE_P(TREE_TYPE(dcl)) &&
       check_magic_equal(DECL_INITIAL(dcl), use->name)) {
@@ -214,18 +210,64 @@ int build_modded_declaration(tree *dxpr, subu_node *use) {
        * perform constant folding(and they do), I don't know all the spots
        * where this variable has been folded, so I can't substitute there */
     }
-    tree res = alloc_stmt_list();
 
-    append_to_statement_list(*dxpr, &res);
+    /* (*dxpr), the input statement we got is this:
+     *
+     * static int myvalue = __tmp_ifs_VAR;
+     *
+     * we're going to modify it to this:
+     *
+     * static int myvalue = __tmp_ifs_VAR;
+     * static uint8 __chk_ifs_myvalue = 0;
+     * if(__chk_ifs_myvalue != 1) {
+     *   __chk_ifs_myvalue = 1;
+     *   myvalue = VAR;
+     * }
+     *
+     * so the modified statement runs exactly once,
+     * whenever the function is first called, right
+     * after the initialization of the variable we
+     * wanted to modify. */
+
+    /* build __chk_ifs_myvalue */
+    snprintf(chk, sizeof(chk), "__chk_ifs_%s", IDENTIFIER_NAME(dcl));
+    tree chknode = build_decl(DECL_SOURCE_LOCATION(dcl), VAR_DECL,
+                              get_identifier(chk), uint8_type_node);
+    DECL_INITIAL(chknode) = build_int_cst(uint8_type_node, 0);
+    TREE_STATIC(chknode) = TREE_STATIC(dcl);
+    TREE_USED(chknode) = TREE_USED(dcl);
+    DECL_READ_P(chknode) = DECL_READ_P(dcl);
+    DECL_CONTEXT(chknode) = DECL_CONTEXT(dcl);
+    DECL_CHAIN(chknode) = DECL_CHAIN(dcl);
+    DECL_CHAIN(dcl) = chknode;
+
+    /* create the then clause of the if statement */
+    tree then_clause = alloc_stmt_list();
+    append_to_statement_list(build2(MODIFY_EXPR, void_type_node, chknode,
+                                    build_int_cst(uint8_type_node, 1)),
+                             &then_clause);
     append_to_statement_list(
-        build_modded_if_stmt(
-            build2(NE_EXPR, void_type_node, VAR_NAME_AS_TREE(use->name),
-                   DECL_EXPR_DECL(*dxpr)),
-            build2(MODIFY_EXPR, void_type_node, DECL_EXPR_DECL(*dxpr),
-                   VAR_NAME_AS_TREE(use->name))),
+        build2(MODIFY_EXPR, void_type_node, dcl, VAR_NAME_AS_TREE(use->name)),
+        &then_clause);
+    /*
+    append_to_statement_list(
+        build_call_expr(VAR_NAME_AS_TREE("printf"), 1,
+                        BUILD_STRING_AS_TREE("initstruct magic\n")),
+        &then_clause);
+    */
+
+    /* create the if statement into the overall result mentioned above */
+    tree res = alloc_stmt_list();
+    append_to_statement_list(*dxpr, &res);
+    append_to_statement_list(build1(DECL_EXPR, void_type_node, chknode), &res);
+    append_to_statement_list(
+        build_modded_if_stmt(build2(NE_EXPR, void_type_node, chknode,
+                                    build_int_cst(uint8_type_node, 1)),
+                             then_clause),
         &res);
-    // debug_tree(res);
+    /* overwrite the input tree with our new statements */
     *dxpr = res;
+    // debug_tree(res);
     return 1;
   }
   return 0;
@@ -273,10 +315,6 @@ tree check_usage(tree *tp, int *check_subtree, void *data) {
     return NULL_TREE;
   }
 
-  if (TREE_CODE(t) == VAR_DECL || TREE_CODE(t) == DECL_EXPR) {
-    DEBUGF("decl_expr %s at %u-%u\n", get_tree_code_str(t),
-           LOCATION_LINE(rng.m_start), LOCATION_LINE(rng.m_finish));
-  }
   if (valid_subu_bounds(ctx->list, rng.m_start, rng.m_finish) ||
       check_loc_in_bound(ctx->list, loc)) {
     if (get_subu_elem(ctx->list, loc, &use) ||

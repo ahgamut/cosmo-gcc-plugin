@@ -23,11 +23,14 @@ int adder(int x, int y) {
 }
 
 void exam_func(int value) {
+  static int LOL = TWO;
   const int THREE = 3;
+  printf("LOL is %d\n", LOL);
   switch (value) {
     case 1: {
       // might create a variable in this scope
       something_1();
+      LOL = 0;
       printf("you got a 1\n");
       break;
     }
@@ -62,7 +65,7 @@ void exam_func(int value) {
 
 int main(int argc, char **argv) {
   printf("This is the modded example\n");
-  static int LOL = TWO;
+  static int LOLMAX = TWO;
   printf("hello TWO is %d\n",
          /* hello I want a comment here */
          TWO);
@@ -72,7 +75,7 @@ int main(int argc, char **argv) {
   exam_func(0);
   exam_func(8);
   exam_func(22);
-  printf("bye LOL is %d\n", LOL);
+  printf("bye LOLMAX is %d\n", LOLMAX);
   for (int i = 0; i < TWO; i++) {
     printf("%d ", i);
   }
