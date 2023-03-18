@@ -38,7 +38,7 @@ test: $(EXAMPLE_BINS)
 ./src/ifswitch.so: $(PLUGIN_OBJS)
 	$(CXX) $^ -shared -o $@
 
-./src/%.o:	./src/%.cpp
+./src/%.o:	./src/%.cpp $(PLUGIN_HEADERS)
 	$(CXX) $(PLUGIN_FLAGS) $< -c -o $@
 
 

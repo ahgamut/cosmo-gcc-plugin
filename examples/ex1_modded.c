@@ -73,5 +73,16 @@ int main(int argc, char **argv) {
   exam_func(8);
   exam_func(22);
   printf("bye LOL is %d\n", LOL);
+  for (int i = 0; i < TWO; i++) {
+    printf("%d ", i);
+  }
+  printf("\n");
+  /* I can't the below expr because of constant folding */
+  /*
+  for (int j = TWO-1; j > 0; j--) {
+    printf("%d ", j);
+  }
+  */
+  printf("\n");
   return 0;
 }

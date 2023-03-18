@@ -204,15 +204,18 @@ static source_range get_switch_bounds(tree sws) {
 int build_modded_declaration(tree *dxpr, subu_node *use) {
   char chk[64];
   // debug_tree(DECL_EXPR_DECL(*dxpr));
-  if (INTEGRAL_TYPE_P(TREE_TYPE(DECL_EXPR_DECL(*dxpr)))) {
+  tree dcl = DECL_EXPR_DECL(*dxpr);
+  if (INTEGRAL_TYPE_P(TREE_TYPE(dcl)) &&
+      check_magic_equal(DECL_INITIAL(dcl), use->name)) {
     DEBUGF("fixing decl for an integer\n");
-    tree res = alloc_stmt_list();
-    if (TREE_READONLY(DECL_EXPR_DECL(*dxpr))) {
-      error_at(EXPR_LOCATION(*dxpr), "cannot substitute this constant\n");
+    if (TREE_READONLY(dcl)) {
+      error_at(EXPR_LOCATION(dcl), "cannot substitute this constant\n");
       /* actually I can, but the issue is if one of gcc's optimizations
        * perform constant folding(and they do), I don't know all the spots
        * where this variable has been folded, so I can't substitute there */
     }
+    tree res = alloc_stmt_list();
+
     append_to_statement_list(*dxpr, &res);
     append_to_statement_list(
         build_modded_if_stmt(
@@ -260,8 +263,17 @@ tree check_usage(tree *tp, int *check_subtree, void *data) {
     }
   }
 
+  if (TREE_CODE(t) == FOR_STMT || TREE_CODE(t) == WHILE_STMT ||
+      TREE_CODE(t) == IF_STMT || TREE_CODE(t) == DO_STMT ||
+      TREE_CODE(t) == USING_STMT || TREE_CODE(t) == CLEANUP_STMT ||
+      TREE_CODE(t) == TRY_BLOCK || TREE_CODE(t) == HANDLER) {
+    /* there's nothing to check in these statements, the walk will
+     * anyway go through their subtrees, which will have the
+     * expressions we need to mod */
+    return NULL_TREE;
+  }
+
   if (TREE_CODE(t) == VAR_DECL || TREE_CODE(t) == DECL_EXPR) {
-    loc = DECL_SOURCE_LOCATION(t);
     DEBUGF("decl_expr %s at %u-%u\n", get_tree_code_str(t),
            LOCATION_LINE(rng.m_start), LOCATION_LINE(rng.m_finish));
   }
@@ -328,6 +340,7 @@ tree check_usage(tree *tp, int *check_subtree, void *data) {
         for (i = 0; i < n; ++i) {
           arg = TREE_OPERAND(t, i);
           DEBUGF("arg %d is %s\n", i, get_tree_code_str(arg));
+          // debug_tree(arg);
           if (TREE_CODE(arg) == INTEGER_CST &&
               check_magic_equal(arg, use->name)) {
             DEBUGF("yup this is the constant we want\n");
