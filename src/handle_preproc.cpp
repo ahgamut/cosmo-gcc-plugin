@@ -104,14 +104,6 @@ void handle_finish_tu(void *gcc_data, void *user_data) {
       }
       clear_subu_list(ctx->mods);
     }
-    if (ctx->globalmods) {
-      if (ctx->globalmods->count != 0) {
-        for (auto it = ctx->globalmods->head; it; it = it->next) {
-          error_at(it->loc, "unable to substitute constant\n");
-        }
-      }
-      clear_subu_list(ctx->globalmods);
-    }
     ctx->prev = NULL;
   }
   deactivate_macro_check();

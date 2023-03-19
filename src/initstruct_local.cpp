@@ -244,7 +244,7 @@ void build_modded_declaration(tree *dxpr, SubContext *ctx, location_t bound) {
                                       build_int_cst(uint8_type_node, 1)),
                                &then_clause);
       append_to_statement_list(
-          build_call_expr(VAR_NAME_AS_TREE("memcpy"), 3,
+          build_call_expr(VAR_NAME_AS_TREE("__builtin_memcpy"), 3,
                           build1(NOP_EXPR, void_type_node,
                                  build1(ADDR_EXPR, ptr_type_node, dcl)),
                           build1(NOP_EXPR, void_type_node,

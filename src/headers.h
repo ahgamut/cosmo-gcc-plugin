@@ -17,6 +17,7 @@
 #include <stringpool.h>
 #include <tree-iterator.h>
 #include <tree.h>
+#include <cgraph.h>
 
 /* useful macros */
 #define EXPR_LOC_LINE(x)      LOCATION_LINE(EXPR_LOCATION((x)))

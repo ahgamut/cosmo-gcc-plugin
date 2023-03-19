@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <string.h>
 
 extern void something_0();
 extern void something_1();
@@ -23,6 +22,14 @@ struct toy {
   int id;
   int value;
 };
+
+static int LOLGlobal = TWO;
+struct toy t1 = {.id = 31, .value = TWO};
+static __attribute__((constructor)) void myctor() {
+  printf("ctor lolglobal is %d\n", LOLGlobal);
+  printf("t1.id = %d, t1.value = %d\n", t1.id, t1.value);
+}
+static int okpls = 1;
 
 int adder(int x, int y) {
   return TWO + x + y + TWO;

@@ -57,8 +57,6 @@ void delete_subu_list(subu_list *);
 struct SubContext {
   /* record all macro uses */
   subu_list *mods;
-  /* copy only global macro uses to this one */
-  subu_list *globalmods;
   /* address of the previous statement we walked through,
    * in case we missed modding it and have to retry */
   tree *prev;

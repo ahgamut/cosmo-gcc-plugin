@@ -22,6 +22,7 @@ void handle_pre_genericize(void *gcc_data, void *user_data) {
   tree t = (tree)gcc_data;
   SubContext *ctx = (SubContext *)user_data;
   tree t2;
+  DEBUGF("checking %s\n", IDENTIFIER_NAME(t));
   if (TREE_CODE(t) == FUNCTION_DECL && DECL_INITIAL(t) != NULL &&
       TREE_STATIC(t)) {
     if (ctx->mods->count == 0) {

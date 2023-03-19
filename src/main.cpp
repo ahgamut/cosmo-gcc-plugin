@@ -26,27 +26,6 @@ static struct plugin_name_args ifswitch_info = {
 /* FREE THE PARTS OF THIS AT PLUGIN_FINISH */
 SubContext plugin_context;
 
-void handle_decl(void *gcc_data, void *user_data) {
-  tree t = (tree)gcc_data;
-  SubContext *ctx = (SubContext *)user_data;
-  subu_list *list = ctx->mods;
-  if (DECL_INITIAL(t) != NULL && TREE_STATIC(t) &&
-      DECL_CONTEXT(t) == NULL_TREE && list->count > 0 &&
-      strncmp(IDENTIFIER_NAME(t), "__tmp_ifs_", strlen("__tmp_ifs_"))) {
-    auto rng = EXPR_LOCATION_RANGE(t);
-    DEBUGF("handle_decl with %s\n", IDENTIFIER_NAME(t));
-    debug_tree(t);
-    debug_tree(DECL_INITIAL(t));
-    debug_tree(TREE_CHAIN(t));
-    if (TREE_TYPE(t) == integer_type_node) {
-      DEBUGF("this is just a static int, we can rewrite it %u,%u\n",
-             LOCATION_LINE(DECL_SOURCE_LOCATION(t)),
-             LOCATION_LINE(rng.m_finish));
-      // process_body(&t, list);
-    }
-  }
-}
-
 void handle_finish(void *gcc_data, void *user_data) {
   SubContext *ctx = (SubContext *)user_data;
   if (ctx != &plugin_context) {
@@ -59,15 +38,6 @@ void handle_finish(void *gcc_data, void *user_data) {
         }
       }
       delete_subu_list(ctx->mods);
-      ctx->mods = NULL;
-    }
-    if (ctx->globalmods) {
-      if (ctx->globalmods->count != 0) {
-        for (auto it = ctx->globalmods->head; it; it = it->next) {
-          error_at(it->loc, "unable to substitute constant\n");
-        }
-      }
-      delete_subu_list(ctx->globalmods);
       ctx->mods = NULL;
     }
     ctx->prev = NULL;
@@ -87,7 +57,6 @@ int plugin_init(struct plugin_name_args *plugin_info,
     return 1;
   }
   plugin_context.mods = init_subu_list();
-  plugin_context.globalmods = init_subu_list();
   plugin_context.prev = NULL;
   plugin_context.switchcount = 0;
   plugin_context.initcount = 0;
