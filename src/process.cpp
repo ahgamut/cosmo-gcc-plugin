@@ -29,7 +29,7 @@ struct context {
 
 tree build_modded_label(unsigned int swcount, const char *case_str,
                         location_t loc = UNKNOWN_LOCATION) {
-  char dest[96] = {0};
+  char dest[128] = {0};
   snprintf(dest, sizeof(dest), "__tmp_ifs_%u_%s", swcount, case_str);
   tree lab = build_decl(loc, LABEL_DECL, get_identifier(dest), void_type_node);
   /* gcc's GIMPLE needs to know that this label
@@ -51,7 +51,7 @@ tree modded_case_label(tree t, unsigned int i, tree swcond, vec<tree> *&ifs,
   // debug_tree(t);
   tree result;
   subu_node *use = NULL;
-  char case_str[72] = {0};
+  char case_str[128] = {0};
 
   if (CASE_LOW(t) == NULL_TREE) {
     DEBUGF("default case\n");
@@ -102,7 +102,7 @@ tree build_modded_switch_stmt(tree swexpr, context *ctx) {
   tree swcond = save_expr(SWITCH_STMT_COND(swexpr));
   tree swbody = SWITCH_STMT_BODY(swexpr);
   tree *tp = NULL;
-  char dest[64] = {0};
+  char dest[128] = {0};
 
   vec<tree> *ifs;
   vec_alloc(ifs, 0);

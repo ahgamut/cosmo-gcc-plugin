@@ -29,19 +29,11 @@ int adder(int x, int y) {
 }
 
 void exam_func(int value) {
-  static int LOL = /*
-                      commenting for posterity
-                     */
-      TWO;
-  int lolmax = 24;
-  int lolagain = TWO;
   const int THREE = 3;
-  printf("LOL is %d\n", LOL);
   switch (value) {
     case 1: {
       // might create a variable in this scope
       something_1();
-      LOL = 0;
       printf("you got a 1\n");
       break;
     }
@@ -53,7 +45,7 @@ void exam_func(int value) {
       // fall-through
 #endif
 
-    case 3:
+    case THREE:
       something_3();
       printf("you got a 3\n");
       break;
@@ -74,63 +66,55 @@ void exam_func(int value) {
   printf("----------------\n");
 }
 
-void helpme(struct toy x1) {
-  struct toy x2[] = {{.id = 21, .value = 32}, {.id = 22, .value = 33}};
-  struct toy x3 = x2[1];
-  memcpy(&x1, &x3, sizeof(x1));
-}
-
-void helpme2() {
-  static struct toy t = {.id = 21, .value = 32};
-  static int x = 0;
-  if (x != 1) {
-    struct toy u = {.id = 11, .value = 12};
-    struct toy *up = &u;
-    x = 1;
-    memcpy(&t, up, sizeof(t));
-  }
-  printf("box[%d]: id=%d, value=%d\n", 0, t.id, t.value);
-}
-
-int main(int argc, char **argv) {
-  printf("This is the modded example\n");
+void init_func() {
   static const struct toy t = {.id = 22,
-                  /* OMG why do a comment here */
-                  .value = TWO};
+                               /* OMG why do a comment here */
+                               .value = TWO};
   static int vals[] = {1, TWO, 3, TWO, 1};
+
+  printf("bye t.id = %d, t.value = %d\n", t.id, t.value);
   for (int i = 0; i < 5; ++i) {
     printf("vals[%d] = %d\n", i, vals[i]);
   }
 
   struct toy box[] = {
       {.id = 1, .value = 1},
+      {.id = 1, .value = TWO},
+      {.id = TWO, .value = 1},
       {.id = TWO, .value = TWO},
   };
-  for (int i = 0; i < 2; ++i) {
+  for (int i = 0; i < 4; ++i) {
     printf("box[%d]: id=%d, value=%d\n", i, box[i].id, box[i].value);
   }
 
-  printf("hello TWO is %d\n",
-         /* hello I want a comment here */
-         TWO);
   for (int i = 0; i < TWO; i++) {
     printf("%d ", i);
   }
   printf("\n");
-
-  exam_func(1);
-  exam_func(2);
-  exam_func(3);
-  exam_func(0);
-  exam_func(8);
-  exam_func(22);
-  printf("bye t.id = %d, t.value = %d\n", t.id, t.value);
   /* I can't mod the below expr because of constant folding */
   /*
   for (int j = TWO-1; j > 0; j--) {
     printf("%d ", j);
   }
   */
-  printf("\n");
+  static int LOL = /*
+                        commenting for posterity
+                       */
+      TWO;
+  printf("LOL is %d\n", LOL);
+}
+
+int main(int argc, char **argv) {
+  /* printf("This is the modded example\n"); */
+  printf("hello TWO is %d\n",
+         /* hello I want a comment here */
+         TWO);
+  exam_func(1);
+  exam_func(2);
+  exam_func(3);
+  exam_func(0);
+  exam_func(8);
+  exam_func(22);
+  init_func();
   return 0;
 }

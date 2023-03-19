@@ -7,6 +7,11 @@ extern void something_3();
 extern const int TWO;
 extern const int THREE;
 
+struct toy {
+  int id;
+  int value;
+};
+
 void exam_func(int value) {
   if (1 == value) goto __plugin_switch_case_1;
   if (TWO == value) goto __plugin_switch_case_TWO;
@@ -53,8 +58,46 @@ __plugin_switch_end:;
   printf("----------------\n");
 }
 
+void init_func() {
+  struct toy t = {.id = 22,
+                  /* OMG why do a comment here */
+                  .value = TWO};
+  int vals[] = {1, TWO, 3, TWO, 1};
+
+  printf("bye t.id = %d, t.value = %d\n", t.id, t.value);
+  for (int i = 0; i < 5; ++i) {
+    printf("vals[%d] = %d\n", i, vals[i]);
+  }
+
+  struct toy box[] = {
+      {.id = 1, .value = 1},
+      {.id = 1, .value = TWO},
+      {.id = TWO, .value = 1},
+      {.id = TWO, .value = TWO},
+  };
+  for (int i = 0; i < 4; ++i) {
+    printf("box[%d]: id=%d, value=%d\n", i, box[i].id, box[i].value);
+  }
+
+  for (int i = 0; i < TWO; i++) {
+    printf("%d ", i);
+  }
+  printf("\n");
+  /* I can't mod the below expr because of constant folding */
+  /*
+  for (int j = TWO-1; j > 0; j--) {
+    printf("%d ", j);
+  }
+  */
+  int LOL = /*
+                        commenting for posterity
+                       */
+      TWO;
+  printf("LOL is %d\n", LOL);
+}
+
 int main(int argc, char **argv) {
-  printf("This is what I expect after modding\n");
+  /* printf("This is what I expect after modding\n"); */
   printf("hello TWO is %d\n", TWO);
   exam_func(1);
   exam_func(2);
@@ -62,5 +105,6 @@ int main(int argc, char **argv) {
   exam_func(0);
   exam_func(8);
   exam_func(22);
+  init_func();
   return 0;
 }
