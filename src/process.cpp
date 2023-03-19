@@ -209,14 +209,7 @@ tree check_usage(tree *tp, int *check_subtree, void *data) {
 
 void process_body(tree *sptr, SubContext *ctx) {
   walk_tree_without_duplicates(sptr, check_usage, ctx);
-  int errcount = 0;
   /* now at this stage, all uses of our macros have been
    * fixed, INCLUDING case labels. Let's confirm that: */
-  for (auto it = ctx->mods->head; it; it = it->next) {
-    error_at(it->loc, "unable to substitute constant\n");
-    errcount += 1;
-  }
-  if (errcount != 0) {
-    clear_subu_list(ctx->mods);
-  }
+  check_empty_subu_list(ctx->mods);
 }

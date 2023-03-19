@@ -106,8 +106,9 @@ int build_modded_int_declaration(tree *dxpr, subu_node *use) {
 }
 
 void modify_local_struct_ctor(tree ctor, subu_list *list, location_t bound) {
-  DEBUGF("hello we have a ctor\n");
   subu_node *use = NULL;
+  unsigned int iprev = 0;
+  bool started = true;
   while (list->count > 0 && LOCATION_BEFORE2(list->start, bound)) {
     get_subu_elem(list, list->start, &use);
     tree val = NULL_TREE;
@@ -118,6 +119,8 @@ void modify_local_struct_ctor(tree ctor, subu_list *list, location_t bound) {
       // debug_tree(val);
       if (TREE_CODE(val) == INTEGER_CST && check_magic_equal(val, use->name)) {
         found = true;
+        iprev = i;
+        started = false;
         break;
       } else if (TREE_CODE(val) == CONSTRUCTOR) {
         modify_local_struct_ctor(val, list, bound);

@@ -178,3 +178,15 @@ void delete_subu_list(subu_list *list) {
   free(list);
   DEBUGF("freeing subu_list at %p\n", list);
 }
+
+void check_empty_subu_list(subu_list *list) {
+  int errcount = 0;
+  for (auto it = list->head; it; it = it->next) {
+    error_at(it->loc, "unable to substitute constant\n");
+    errcount += 1;
+  }
+  if (errcount != 0) {
+    /* DON'T DELETE! */
+    clear_subu_list(list);
+  }
+}

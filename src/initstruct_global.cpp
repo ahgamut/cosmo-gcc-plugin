@@ -18,19 +18,87 @@
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "ifswitch.h"
 
-void create_hidden_ctor(tree tmpvar, tree body) {
-  tree block = make_node(BLOCK);
-  BLOCK_VARS(block) = tmpvar;
-  TREE_SET_BLOCK(tmpvar, block);
-
-  tree bexpr = build3(BIND_EXPR, void_type_node, tmpvar, body, block);
-  cgraph_build_static_cdtor('I', bexpr, 0);
+tree access_at(tree obj, tree ind) {
+  if (TREE_CODE(TREE_TYPE(obj)) == ARRAY_TYPE) {
+    return build_array_ref(input_location, obj, ind);
+  }
+  return build_component_ref(input_location, obj,
+                             get_identifier(IDENTIFIER_NAME(ind)),
+                             DECL_SOURCE_LOCATION(ind));
 }
 
-void rewrite_declarations_into_ctor(tree dcl, SubContext *ctx) {
+void set_values_based_on_ctor(tree ctor, subu_list *list, tree body, tree lhs,
+                              location_t bound) {
+  subu_node *use = NULL;
+  unsigned int iprev = 0;
+  bool started = true;
+  while (list->count > 0 && LOCATION_BEFORE2(list->start, bound)) {
+    get_subu_elem(list, list->start, &use);
+    tree index = NULL_TREE;
+    tree val = NULL_TREE;
+    unsigned int i = 0;
+    bool found = false;
+    FOR_EACH_CONSTRUCTOR_ELT(CONSTRUCTOR_ELTS(ctor), i, index, val) {
+      DEBUGF("value %u is %s\n", i, get_tree_code_str(val));
+      if (!started && i <= iprev) continue;
+      if (TREE_CODE(val) == INTEGER_CST && check_magic_equal(val, use->name)) {
+        found = true;
+        iprev = i;
+        started = false;
+        break;
+      } else if (TREE_CODE(val) == CONSTRUCTOR) {
+        auto sub = access_at(lhs, index);
+        // debug_tree(sub);
+        set_values_based_on_ctor(val, list, body, sub, bound);
+        use = NULL; /* might've gotten stomped */
+        if (list->count == 0) return;
+        get_subu_elem(list, list->start, &use);
+      }
+    }
+    if (found) {
+      auto modexpr = build2(MODIFY_EXPR, TREE_TYPE(index),
+                            access_at(lhs, index), VAR_NAME_AS_TREE(use->name));
+      // debug_tree(modexpr);
+      append_to_statement_list(modexpr, &body);
+      remove_subu_elem(list, use);
+      DEBUGF("found; %d left\n", list->count);
+    } else {
+      /* we did not find any (more) substitutions to fix */
+      break;
+    }
+  }
+}
+
+void update_global_decls(tree dcl, SubContext *ctx) {
   tree body = alloc_stmt_list();
   subu_node *use = NULL;
   char chk[128];
+
+  /* dcl, the global declaration we have is like these:
+   *
+   * static int foo = __tmp_ifs_VAR;
+   * static struct toy myvalue = {.x=1, .y=__tmp_ifs_VAR};
+   *
+   * we're going to add functions as follows:
+   *
+   * static int foo = __tmp_ifs_VAR;
+   * __attribute__((constructor)) __hidden_ctor1() {
+   *   foo = VAR;
+   * }
+   * static struct toy myvalue = {.x=1, .y=__tmp_ifs_VAR};
+   * __attribute__((constructor)) __hidden_ctor2() {
+   *    myvalue.y = VAR;
+   * }
+   *
+   * the modifier functions have the constructor attribute,
+   * so it they run before anything uses the static. it
+   * works recursively too: you can have a struct of structs,
+   * an array of structs, whatever, and it will figure out
+   * where the substitutions are and attempt to mod them.
+   *
+   * a unique constructor for each declaration. probably
+   * we could have a common constructor for the entire
+   * file, but that's left an exercise for the reader. */
   if (INTEGRAL_TYPE_P(TREE_TYPE(dcl)) &&
       get_subu_elem(ctx->mods, ctx->mods->start, &use) &&
       /* use is non-NULL if get_subu_elem succeeds */
@@ -46,11 +114,13 @@ void rewrite_declarations_into_ctor(tree dcl, SubContext *ctx) {
     append_to_statement_list(
         build2(MODIFY_EXPR, void_type_node, dcl, VAR_NAME_AS_TREE(use->name)),
         &body);
+    /*
     append_to_statement_list(
         build_call_expr(VAR_NAME_AS_TREE("printf"), 2,
                         BUILD_STRING_AS_TREE("ctor initstruct %s\n"),
                         BUILD_STRING_AS_TREE(IDENTIFIER_NAME(dcl))),
         &body);
+        */
     remove_subu_elem(ctx->mods, use);
     cgraph_build_static_cdtor('I', body, 0);
   } else if ((RECORD_TYPE == TREE_CODE(TREE_TYPE(dcl)) ||
@@ -61,34 +131,16 @@ void rewrite_declarations_into_ctor(tree dcl, SubContext *ctx) {
                  "not sure if modding const structs is good\n");
       TREE_READONLY(dcl) = 0;
     }
-
-    snprintf(chk, sizeof(chk), "__tmp_ifs_%s", IDENTIFIER_NAME(dcl));
-    tree tmpvar = build_decl(UNKNOWN_LOCATION, VAR_DECL, get_identifier(chk),
-                             TREE_TYPE(dcl));
-    DECL_INITIAL(tmpvar) = copy_struct_ctor(DECL_INITIAL(dcl));
-    // debug_tree(DECL_INITIAL(tmpvar));
-    TREE_USED(tmpvar) = TREE_USED(dcl);
-    DECL_READ_P(tmpvar) = DECL_READ_P(dcl);
-    tree tmpexpr = build1(DECL_EXPR, void_type_node, tmpvar);
-    modify_local_struct_ctor(DECL_INITIAL(tmpvar), ctx->mods, ctx->mods->end);
-
-    append_to_statement_list(tmpexpr, &body);
-    append_to_statement_list(
-        build_call_expr(VAR_NAME_AS_TREE("__builtin_memcpy"), 3,
-                        build1(NOP_EXPR, void_type_node,
-                               build1(ADDR_EXPR, ptr_type_node, dcl)),
-                        build1(NOP_EXPR, void_type_node,
-                               build1(ADDR_EXPR, ptr_type_node, tmpvar)),
-                        DECL_SIZE_UNIT(dcl)),
-        &body);
+    set_values_based_on_ctor(DECL_INITIAL(dcl), ctx->mods, body, dcl,
+                             ctx->mods->end);
+    /*
     append_to_statement_list(
         build_call_expr(VAR_NAME_AS_TREE("printf"), 2,
                         BUILD_STRING_AS_TREE("ctor initstruct %s\n"),
                         BUILD_STRING_AS_TREE(IDENTIFIER_NAME(dcl))),
         &body);
-    debug_tree(DECL_CONTEXT(tmpvar));
-    /* cgraph_build_static_cdtor('I', body, 0); */
-    /* create_hidden_ctor(tmpvar, body); */
+        */
+    cgraph_build_static_cdtor('I', body, 0);
     DEBUGF("uploaded ctor\n");
   }
 }
@@ -96,8 +148,8 @@ void rewrite_declarations_into_ctor(tree dcl, SubContext *ctx) {
 void handle_decl(void *gcc_data, void *user_data) {
   tree t = (tree)gcc_data;
   SubContext *ctx = (SubContext *)user_data;
-  if (DECL_INITIAL(t) != NULL && DECL_CONTEXT(t) == NULL_TREE &&
-      ctx->mods->count > 0 &&
+  if (ctx->mods->count > 0 && DECL_INITIAL(t) != NULL &&
+      DECL_CONTEXT(t) == NULL_TREE &&
       strncmp(IDENTIFIER_NAME(t), "__tmp_ifs_", strlen("__tmp_ifs_"))) {
     auto rng = EXPR_LOCATION_RANGE(t);
     rng.m_finish = DECL_SOURCE_LOCATION(t);
@@ -105,17 +157,10 @@ void handle_decl(void *gcc_data, void *user_data) {
     DEBUGF("handle_decl with %s %u,%u - %u-%u\n", IDENTIFIER_NAME(t),
            LOCATION_LINE(rng.m_start), LOCATION_COLUMN(rng.m_start),
            LOCATION_LINE(rng.m_finish), LOCATION_COLUMN(rng.m_finish));
-    rewrite_declarations_into_ctor(t, ctx);
     ctx->initcount += ctx->mods->count;
-    int errcount = 0;
+    update_global_decls(t, ctx);
     /* now at this stage, all uses of our macros have been
      * fixed, INCLUDING case labels. Let's confirm that: */
-    for (auto it = ctx->mods->head; it; it = it->next) {
-      error_at(it->loc, "unable to substitute constant\n");
-      errcount += 1;
-    }
-    if (errcount != 0) {
-      clear_subu_list(ctx->mods);
-    }
+    check_empty_subu_list(ctx->mods);
   }
 }
