@@ -204,16 +204,23 @@ static source_range get_switch_bounds(tree sws) {
 int build_modded_int_declaration(tree *dxpr, subu_node *use) {
   char chk[128];
   tree dcl = DECL_EXPR_DECL(*dxpr);
-  if (TREE_READONLY(dcl)) {
-    error_at(EXPR_LOCATION(dcl), "cannot substitute this constant\n");
-    /* actually I can, but the issue is if one of gcc's optimizations
-     * perform constant folding(and they do), I don't know all the spots
-     * where this variable has been folded, so I can't substitute there */
-    return 0;
-  }
+
   if (INTEGRAL_TYPE_P(TREE_TYPE(dcl)) &&
       check_magic_equal(DECL_INITIAL(dcl), use->name)) {
-    DEBUGF("fixing decl for an integer\n");
+    if (TREE_READONLY(dcl)) {
+      error_at(EXPR_LOCATION(dcl), "cannot substitute this constant\n");
+      /* actually I can, but the issue is if one of gcc's optimizations
+       * perform constant folding(and they do), I don't know all the spots
+       * where this variable has been folded, so I can't substitute there */
+      return 0;
+    }
+
+    if (!TREE_STATIC(dcl)) {
+      DECL_INITIAL(dcl) = VAR_NAME_AS_TREE(use->name);
+      return 1;
+    }
+
+    DEBUGF("fixing decl for an static integer\n");
     /* (*dxpr), the input statement we got is this:
      *
      * static int myvalue = __tmp_ifs_VAR;
@@ -310,30 +317,11 @@ void modify_local_struct_ctor(tree ctor, subu_list *list, location_t bound) {
   }
 }
 
-void build_modded_local_struct(tree *dxpr, subu_list *list, location_t bound) {
+void build_modded_declaration(tree *dxpr, subu_list *list, location_t bound) {
   char chk[128];
   tree dcl = DECL_EXPR_DECL(*dxpr);
   subu_node *use = NULL;
 
-  /* debug_tree(DECL_INITIAL(dcl)); */
-  if ((RECORD_TYPE == TREE_CODE(TREE_TYPE(dcl)) ||
-       ARRAY_TYPE == TREE_CODE(TREE_TYPE(dcl))) &&
-      DECL_INITIAL(dcl) != NULL_TREE) {
-    auto ctor = DECL_INITIAL(dcl);
-    modify_local_struct_ctor(ctor, list, bound);
-  }
-}
-
-void build_modded_struct_declaration(tree *dxpr, subu_list *list,
-                                     location_t bound) {
-  char chk[128];
-  tree dcl = DECL_EXPR_DECL(*dxpr);
-  subu_node *use = NULL;
-
-  if (TREE_READONLY(dcl)) {
-    error_at(EXPR_LOCATION(dcl), "strcut cannot substitute this constant\n");
-    return;
-  }
   // debug_tree(DECL_INITIAL(dcl));
 
   if (INTEGRAL_TYPE_P(TREE_TYPE(dcl))) {
@@ -344,10 +332,19 @@ void build_modded_struct_declaration(tree *dxpr, subu_list *list,
     }
     return;
   }
-  if (!TREE_STATIC(dcl)) {
-    build_modded_local_struct(dxpr, list, bound);
-  } else {
-    error_at(EXPR_LOCATION(dcl), "haven't impl for static structs yet\n");
+
+  if ((RECORD_TYPE == TREE_CODE(TREE_TYPE(dcl)) ||
+       ARRAY_TYPE == TREE_CODE(TREE_TYPE(dcl))) &&
+      DECL_INITIAL(dcl) != NULL_TREE) {
+    if (TREE_READONLY(dcl)) {
+      error_at(EXPR_LOCATION(dcl), "not sure if impl for const structs\n");
+      return;
+    } else if (TREE_STATIC(dcl)) {
+      error_at(EXPR_LOCATION(dcl), "haven't impl for static structs yet\n");
+    } else {
+      auto ctor = DECL_INITIAL(dcl);
+      modify_local_struct_ctor(ctor, list, bound);
+    }
   }
 }
 
@@ -372,7 +369,7 @@ tree check_usage(tree *tp, int *check_subtree, void *data) {
     // debug_tree(t);
     DEBUGF("did we miss a decl?\n");
     if (loc != rng.m_start) loc = rng.m_start;
-    build_modded_struct_declaration(ctx->prev, ctx->list, loc);
+    build_modded_declaration(ctx->prev, ctx->list, loc);
     ctx->prev = NULL;
   }
 

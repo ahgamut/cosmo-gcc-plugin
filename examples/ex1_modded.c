@@ -33,6 +33,7 @@ void exam_func(int value) {
                      */
       TWO;
   int lolmax = 24;
+  int lolagain = TWO;
   const int THREE = 3;
   printf("LOL is %d\n", LOL);
   switch (value) {
