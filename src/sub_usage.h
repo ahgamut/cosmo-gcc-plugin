@@ -66,6 +66,8 @@ struct SubContext {
   unsigned int switchcount;
   /* count number of initializations rewritten */
   unsigned int initcount;
+  /* count number of other substitutions rewritten */
+  unsigned int subcount;
 };
 
 

@@ -7,6 +7,15 @@
 #define IFSWITCH_VERSION "0.0.1"
 #define IFSWITCH_HELP    "convert switch statements to if statements"
 
+/* in ifswitch.cpp */
+source_range get_switch_bounds(tree);
+unsigned int count_mods_in_switch(tree, subu_list *);
+tree build_modded_switch_stmt(tree, SubContext *);
+
+/* in initstruct_local.cpp */
+void build_modded_declaration(tree *, SubContext *, location_t);
+int build_modded_int_declaration(tree *, subu_node *);
+
 /* in process.cpp */
 void process_body(tree *, SubContext *);
 

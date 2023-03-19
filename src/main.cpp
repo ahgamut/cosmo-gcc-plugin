@@ -71,10 +71,12 @@ void handle_finish(void *gcc_data, void *user_data) {
       ctx->mods = NULL;
     }
     ctx->prev = NULL;
-    inform(UNKNOWN_LOCATION, "modified %u switch statements\n", ctx->switchcount);
+    inform(UNKNOWN_LOCATION, "rewrote %u switch statements", ctx->switchcount);
     ctx->switchcount = 0;
-    inform(UNKNOWN_LOCATION, "modified %u initializations\n", ctx->initcount);
+    inform(UNKNOWN_LOCATION, "modified %u initializations", ctx->initcount);
     ctx->initcount = 0;
+    inform(UNKNOWN_LOCATION, "modified %u other macro uses", ctx->subcount);
+    ctx->subcount = 0;
   }
 }
 
@@ -89,6 +91,7 @@ int plugin_init(struct plugin_name_args *plugin_info,
   plugin_context.prev = NULL;
   plugin_context.switchcount = 0;
   plugin_context.initcount = 0;
+  plugin_context.subcount = 0;
 
   DEBUGF("Loading plugin %s on GCC %s...\n", plugin_info->base_name,
          version->basever);
