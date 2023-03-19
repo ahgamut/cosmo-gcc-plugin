@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 
 extern void something_0();
 extern void something_1();
@@ -73,12 +74,30 @@ void exam_func(int value) {
   printf("----------------\n");
 }
 
+void helpme(struct toy x1) {
+  struct toy x2[] = {{.id = 21, .value = 32}, {.id = 22, .value = 33}};
+  struct toy x3 = x2[1];
+  memcpy(&x1, &x3, sizeof(x1));
+}
+
+void helpme2() {
+  static struct toy t = {.id = 21, .value = 32};
+  static int x = 0;
+  if (x != 1) {
+    struct toy u = {.id = 11, .value = 12};
+    struct toy *up = &u;
+    x = 1;
+    memcpy(&t, up, sizeof(t));
+  }
+  printf("box[%d]: id=%d, value=%d\n", 0, t.id, t.value);
+}
+
 int main(int argc, char **argv) {
   printf("This is the modded example\n");
-  struct toy t = {.id = 22,
+  static const struct toy t = {.id = 22,
                   /* OMG why do a comment here */
                   .value = TWO};
-  int vals[] = {1, TWO, 3, TWO, 1};
+  static int vals[] = {1, TWO, 3, TWO, 1};
   for (int i = 0; i < 5; ++i) {
     printf("vals[%d] = %d\n", i, vals[i]);
   }
@@ -105,7 +124,7 @@ int main(int argc, char **argv) {
   exam_func(0);
   exam_func(8);
   exam_func(22);
-  printf("bye toy's value is %d\n", t.value);
+  printf("bye t.id = %d, t.value = %d\n", t.id, t.value);
   /* I can't mod the below expr because of constant folding */
   /*
   for (int j = TWO-1; j > 0; j--) {

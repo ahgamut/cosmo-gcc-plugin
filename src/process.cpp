@@ -220,8 +220,8 @@ int build_modded_int_declaration(tree *dxpr, subu_node *use) {
       return 1;
     }
 
-    DEBUGF("fixing decl for an static integer\n");
-    /* (*dxpr), the input statement we got is this:
+    DEBUGF("fixing decl for a static integer\n");
+    /* (*dxpr), the statement we have is this:
      *
      * static int myvalue = __tmp_ifs_VAR;
      *
@@ -311,10 +311,28 @@ void modify_local_struct_ctor(tree ctor, subu_list *list, location_t bound) {
       // debug_tree(CONSTRUCTOR_ELT(ctor, i)->value);
       remove_subu_elem(list, use);
     } else {
-      /* we did not find any substitution to do */
+      /* we did not find any (more) substitutions to fix */
       break;
     }
   }
+}
+
+tree copy_struct_ctor(tree ctor) {
+  tree ind = NULL_TREE;
+  tree val = NULL_TREE;
+  constructor_elt x = {.index = NULL, .value = NULL};
+  unsigned int i = 0;
+  tree dupe = build0(CONSTRUCTOR, TREE_TYPE(ctor));
+  FOR_EACH_CONSTRUCTOR_ELT(CONSTRUCTOR_ELTS(ctor), i, ind, val) {
+    x.index = copy_node(ind);
+    if (TREE_CODE(val) == CONSTRUCTOR) {
+      x.value = copy_struct_ctor(val);
+    } else {
+      x.value = copy_node(val);
+    }
+    vec_safe_push(((tree_constructor *)(dupe))->elts, x);
+  }
+  return dupe;
 }
 
 void build_modded_declaration(tree *dxpr, subu_list *list, location_t bound) {
@@ -337,11 +355,101 @@ void build_modded_declaration(tree *dxpr, subu_list *list, location_t bound) {
        ARRAY_TYPE == TREE_CODE(TREE_TYPE(dcl))) &&
       DECL_INITIAL(dcl) != NULL_TREE) {
     if (TREE_READONLY(dcl)) {
-      error_at(EXPR_LOCATION(dcl), "not sure if impl for const structs\n");
+      warning_at(EXPR_LOCATION(*dxpr), 0,
+                 "not sure if modding const structs is good\n");
+      TREE_READONLY(dcl) = 0;
+      build_modded_declaration(dxpr, list, bound);
       return;
     } else if (TREE_STATIC(dcl)) {
-      error_at(EXPR_LOCATION(dcl), "haven't impl for static structs yet\n");
+      DEBUGF("fixing decl for a static struct\n");
+      /* (*dxpr), the statement we have is this:
+       *
+       * static struct toy myvalue = {.x=1, .y=__tmp_ifs_VAR};
+       *
+       * we're going to modify it to this:
+       *
+       * static struct toy myvalue = {.x=1, .y=__tmp_ifs_VAR};
+       * static uint8 __chk_ifs_myvalue = 0;
+       * if(__chk_ifs_myvalue != 1) {
+       *   struct toy __tmp_myvalue = {.x=1, .y=VAR};
+       *   __chk_ifs_myvalue = 1;
+       *   memcpy(&myvalue, &__tmp_myvalue, sizeof(myvalue));
+       * }
+       *
+       * so the modified statement runs exactly once,
+       * whenever the function is first called, right
+       * after the initialization of the variable we
+       * wanted to modify. */
+
+      /* build __chk_ifs_myvalue */
+      snprintf(chk, sizeof(chk), "__chk_ifs_%s", IDENTIFIER_NAME(dcl));
+      tree chknode = build_decl(DECL_SOURCE_LOCATION(dcl), VAR_DECL,
+                                get_identifier(chk), uint8_type_node);
+      DECL_INITIAL(chknode) = build_int_cst(uint8_type_node, 0);
+      TREE_STATIC(chknode) = TREE_STATIC(dcl);
+      TREE_USED(chknode) = TREE_USED(dcl);
+      DECL_READ_P(chknode) = DECL_READ_P(dcl);
+      DECL_CONTEXT(chknode) = DECL_CONTEXT(dcl);
+      DECL_CHAIN(chknode) = DECL_CHAIN(dcl);
+      DECL_CHAIN(dcl) = chknode;
+
+      /* build a scope block for the temporary value */
+      tree tmpscope = build0(BLOCK, void_type_node);
+      BLOCK_SUPERCONTEXT(tmpscope) = TREE_BLOCK(*dxpr);
+      // debug_tree(BLOCK_SUPERCONTEXT(tmpscope));
+
+      /* build __tmp_myvalue */
+      snprintf(chk, sizeof(chk), "__tmp_ifs_%s", IDENTIFIER_NAME(dcl));
+      tree tmpvar = build_decl(DECL_SOURCE_LOCATION(dcl), VAR_DECL,
+                               get_identifier(chk), TREE_TYPE(dcl));
+      DECL_INITIAL(tmpvar) = copy_struct_ctor(DECL_INITIAL(dcl));
+      // debug_tree(DECL_INITIAL(tmpvar));
+      TREE_USED(tmpvar) = TREE_USED(dcl);
+      DECL_READ_P(tmpvar) = DECL_READ_P(dcl);
+      DECL_CONTEXT(tmpvar) = DECL_CONTEXT(dcl);
+      tree tmpexpr = build1(DECL_EXPR, void_type_node, tmpvar);
+      TREE_SET_BLOCK(tmpexpr, tmpscope);
+      BLOCK_VARS(tmpscope) = tmpvar;
+      modify_local_struct_ctor(DECL_INITIAL(tmpvar), list, bound);
+
+      /* create the then clause of the if statement */
+      tree then_clause = alloc_stmt_list();
+      append_to_statement_list(tmpexpr, &then_clause);
+      append_to_statement_list(build2(MODIFY_EXPR, void_type_node, chknode,
+                                      build_int_cst(uint8_type_node, 1)),
+                               &then_clause);
+      append_to_statement_list(
+          build_call_expr(VAR_NAME_AS_TREE("memcpy"), 3,
+                          build1(NOP_EXPR, void_type_node,
+                                 build1(ADDR_EXPR, ptr_type_node, dcl)),
+                          build1(NOP_EXPR, void_type_node,
+                                 build1(ADDR_EXPR, ptr_type_node, tmpvar)),
+                          DECL_SIZE_UNIT(dcl)),
+          &then_clause);
+      /*
+      append_to_statement_list(
+          build_call_expr(VAR_NAME_AS_TREE("printf"), 2,
+                          BUILD_STRING_AS_TREE("initstruct magic %lu bytes\n"),
+                          DECL_SIZE_UNIT(dcl)),
+          &then_clause);
+      */
+
+      /* create the if statement into the overall result mentioned above */
+      tree res = alloc_stmt_list();
+      append_to_statement_list(*dxpr, &res);
+      append_to_statement_list(build1(DECL_EXPR, void_type_node, chknode),
+                               &res);
+      append_to_statement_list(
+          build_modded_if_stmt(
+              build2(NE_EXPR, void_type_node, chknode,
+                     build_int_cst(uint8_type_node, 1)),
+              build3(BIND_EXPR, void_type_node, tmpvar, then_clause, tmpscope)),
+          &res);
+      /* overwrite the input tree with our new statements */
+      *dxpr = res;
     } else {
+      /* if it's a local struct, we can
+       * just mod the constructor itself */
       auto ctor = DECL_INITIAL(dcl);
       modify_local_struct_ctor(ctor, list, bound);
     }
