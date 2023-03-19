@@ -20,6 +20,9 @@
 
 struct context {
   subu_list *list;
+  tree *prev;
+  /* address of the previous statement we walked through,
+   * in case we missed modding it and have to retry */
   unsigned int swcount;
   /* count number of switch statements rewritten */
 };
@@ -198,19 +201,19 @@ static source_range get_switch_bounds(tree sws) {
   return rng;
 }
 
-int build_modded_declaration(tree *dxpr, subu_node *use) {
+int build_modded_int_declaration(tree *dxpr, subu_node *use) {
   char chk[128];
   tree dcl = DECL_EXPR_DECL(*dxpr);
+  if (TREE_READONLY(dcl)) {
+    error_at(EXPR_LOCATION(dcl), "cannot substitute this constant\n");
+    /* actually I can, but the issue is if one of gcc's optimizations
+     * perform constant folding(and they do), I don't know all the spots
+     * where this variable has been folded, so I can't substitute there */
+    return 0;
+  }
   if (INTEGRAL_TYPE_P(TREE_TYPE(dcl)) &&
       check_magic_equal(DECL_INITIAL(dcl), use->name)) {
     DEBUGF("fixing decl for an integer\n");
-    if (TREE_READONLY(dcl)) {
-      error_at(EXPR_LOCATION(dcl), "cannot substitute this constant\n");
-      /* actually I can, but the issue is if one of gcc's optimizations
-       * perform constant folding(and they do), I don't know all the spots
-       * where this variable has been folded, so I can't substitute there */
-    }
-
     /* (*dxpr), the input statement we got is this:
      *
      * static int myvalue = __tmp_ifs_VAR;
@@ -273,6 +276,81 @@ int build_modded_declaration(tree *dxpr, subu_node *use) {
   return 0;
 }
 
+void modify_local_struct_ctor(tree ctor, subu_list *list, location_t bound) {
+  DEBUGF("hello we have a ctor\n");
+  subu_node *use = NULL;
+  while (list->count > 0 && LOCATION_BEFORE2(list->start, bound)) {
+    get_subu_elem(list, list->start, &use);
+    tree val = NULL_TREE;
+    unsigned int i = 0;
+    bool found = false;
+    FOR_EACH_CONSTRUCTOR_VALUE(CONSTRUCTOR_ELTS(ctor), i, val) {
+      DEBUGF("value %u is %s\n", i, get_tree_code_str(val));
+      // debug_tree(val);
+      if (TREE_CODE(val) == INTEGER_CST && check_magic_equal(val, use->name)) {
+        found = true;
+        break;
+      } else if (TREE_CODE(val) == CONSTRUCTOR) {
+        modify_local_struct_ctor(val, list, bound);
+        use = NULL; /* might've gotten stomped */
+        if (list->count == 0 || LOCATION_AFTER2(list->start, bound)) return;
+        get_subu_elem(list, list->start, &use);
+      }
+    }
+    if (found) {
+      DEBUGF("found\n");
+      debug_tree(CONSTRUCTOR_ELT(ctor, i)->index);
+      CONSTRUCTOR_ELT(ctor, i)->value = VAR_NAME_AS_TREE(use->name);
+      // debug_tree(CONSTRUCTOR_ELT(ctor, i)->value);
+      remove_subu_elem(list, use);
+    } else {
+      /* we did not find any substitution to do */
+      break;
+    }
+  }
+}
+
+void build_modded_local_struct(tree *dxpr, subu_list *list, location_t bound) {
+  char chk[128];
+  tree dcl = DECL_EXPR_DECL(*dxpr);
+  subu_node *use = NULL;
+
+  /* debug_tree(DECL_INITIAL(dcl)); */
+  if ((RECORD_TYPE == TREE_CODE(TREE_TYPE(dcl)) ||
+       ARRAY_TYPE == TREE_CODE(TREE_TYPE(dcl))) &&
+      DECL_INITIAL(dcl) != NULL_TREE) {
+    auto ctor = DECL_INITIAL(dcl);
+    modify_local_struct_ctor(ctor, list, bound);
+  }
+}
+
+void build_modded_struct_declaration(tree *dxpr, subu_list *list,
+                                     location_t bound) {
+  char chk[128];
+  tree dcl = DECL_EXPR_DECL(*dxpr);
+  subu_node *use = NULL;
+
+  if (TREE_READONLY(dcl)) {
+    error_at(EXPR_LOCATION(dcl), "strcut cannot substitute this constant\n");
+    return;
+  }
+  // debug_tree(DECL_INITIAL(dcl));
+
+  if (INTEGRAL_TYPE_P(TREE_TYPE(dcl))) {
+    get_subu_elem(list, list->start, &use);
+    if (build_modded_int_declaration(dxpr, use)) {
+      remove_subu_elem(list, use);
+      use = NULL;
+    }
+    return;
+  }
+  if (!TREE_STATIC(dcl)) {
+    build_modded_local_struct(dxpr, list, bound);
+  } else {
+    error_at(EXPR_LOCATION(dcl), "haven't impl for static structs yet\n");
+  }
+}
+
 tree check_usage(tree *tp, int *check_subtree, void *data) {
   context *ctx = (context *)(data);
   tree t = *tp;
@@ -286,6 +364,16 @@ tree check_usage(tree *tp, int *check_subtree, void *data) {
     /* DEBUGF("substitutions complete\n"); */
     *check_subtree = 0;
     return NULL_TREE;
+  }
+
+  if (ctx->prev && TREE_CODE(*(ctx->prev)) == DECL_EXPR &&
+      (LOCATION_BEFORE2(ctx->list->start, loc) ||
+       LOCATION_BEFORE2(ctx->list->start, rng.m_start))) {
+    // debug_tree(t);
+    DEBUGF("did we miss a decl?\n");
+    if (loc != rng.m_start) loc = rng.m_start;
+    build_modded_struct_declaration(ctx->prev, ctx->list, loc);
+    ctx->prev = NULL;
   }
 
   if (TREE_CODE(t) == SWITCH_STMT) {
@@ -302,6 +390,7 @@ tree check_usage(tree *tp, int *check_subtree, void *data) {
        * any subtrees from this current location */
       *check_subtree = 0;
       ctx->swcount += 1;
+      return NULL_TREE;
     }
   }
 
@@ -315,6 +404,35 @@ tree check_usage(tree *tp, int *check_subtree, void *data) {
     return NULL_TREE;
   }
 
+  if (TREE_CODE(t) == DECL_EXPR) {
+    DEBUGF("hi decl_expr for %s at (%u,%u)-(%u,%u)\n",
+           IDENTIFIER_NAME(DECL_EXPR_DECL(t)), LOCATION_LINE(rng.m_start),
+           LOCATION_COLUMN(rng.m_start), LOCATION_LINE(rng.m_finish),
+           LOCATION_COLUMN(rng.m_finish));
+    // debug_tree(DECL_EXPR_DECL(t));
+    if ((RECORD_TYPE == TREE_CODE(TREE_TYPE(DECL_EXPR_DECL(t))) ||
+         ARRAY_TYPE == TREE_CODE(TREE_TYPE(DECL_EXPR_DECL(t)))) &&
+        DECL_INITIAL(DECL_EXPR_DECL(t)) != NULL_TREE) {
+      // debug_tree(DECL_INITIAL(DECL_EXPR_DECL(t)));
+      ctx->prev = tp;
+      return NULL_TREE;
+    }
+
+    if (INTEGRAL_TYPE_P(TREE_TYPE(DECL_EXPR_DECL(t)))) {
+      /* suppose we have recorded a macro use
+       * related to this declaration, but then
+       * somehow, we did not actually fix the
+       * substituted value in the below code.
+       * something's fishy: maybe there is a
+       * multi-line comment between the name
+       * of the variable and the actual value.
+       * we'll check again before the next
+       * element in the AST, just in case */
+      DEBUGF("just in case\n");
+      ctx->prev = tp;
+    }
+  }
+
   if (valid_subu_bounds(ctx->list, rng.m_start, rng.m_finish) ||
       check_loc_in_bound(ctx->list, loc)) {
     if (get_subu_elem(ctx->list, loc, &use) ||
@@ -325,9 +443,11 @@ tree check_usage(tree *tp, int *check_subtree, void *data) {
       DEBUGF("found mark at %u,%u in a %s\n", LOCATION_LINE(loc),
              LOCATION_COLUMN(loc), get_tree_code_str(t));
       if (TREE_CODE(t) == DECL_EXPR) {
-        if (build_modded_declaration(tp, use)) {
+        if (build_modded_int_declaration(tp, use)) {
           remove_subu_elem(ctx->list, use);
           use = NULL;
+          DEBUGF("fixed\n");
+          ctx->prev = NULL;
         }
       } else if (TREE_CODE(t) == CALL_EXPR) {
       check_call_args:
@@ -411,6 +531,8 @@ tree check_usage(tree *tp, int *check_subtree, void *data) {
     }
     DEBUGF("got in but no use %s at %u-%u\n", get_tree_code_str(t),
            LOCATION_LINE(rng.m_start), LOCATION_LINE(rng.m_finish));
+
+    // debug_tree(t);
   }
   return NULL_TREE;
 }
@@ -418,6 +540,7 @@ tree check_usage(tree *tp, int *check_subtree, void *data) {
 void process_body(tree *sptr, subu_list *list) {
   context myctx;
   myctx.list = list;
+  myctx.prev = NULL;
   myctx.swcount = 0;
 
   walk_tree_without_duplicates(sptr, check_usage, &myctx);
