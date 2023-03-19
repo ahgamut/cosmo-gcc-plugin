@@ -18,21 +18,16 @@
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "ifswitch.h"
 
-/* DON'T FREE THIS */
-subu_list recorder = {
-    .head = NULL,
-    .start = 0,
-    .end = 0,
-    .count = 0,
-};
+/* DON'T FREE THE PARTS OF THIS */
+extern SubContext plugin_context;
 int mod_active;
 
 void check_macro_use(cpp_reader *reader, location_t loc, cpp_hashnode *node) {
   const char *defn = (const char *)cpp_macro_definition(reader, node);
   unsigned space_at = 0;
   if (strstr(defn, " LITERALLY(") || strstr(defn, "SYMBOLIC(")) {
-    DEBUGF("flags = %03o, at %u,%u checking macro.. %s\n", node->flags,
-           LOCATION_LINE(loc), LOCATION_COLUMN(loc), defn);
+    DEBUGF("at %u,%u checking macro.. %s\n", LOCATION_LINE(loc),
+           LOCATION_COLUMN(loc), defn);
     /* I can subtract pointers because I did the strstr;
      * I just want the name of macro (ie the 'constant'
      * that is being LITERALLY used) */
@@ -40,7 +35,8 @@ void check_macro_use(cpp_reader *reader, location_t loc, cpp_hashnode *node) {
     /* I don't have enough info to say whether
      * this is a case label or just a normal statement
      * inside a switch, or something outside a switch */
-    add_subu_elem(&recorder, build_subu(loc, defn, space_at, UNKNOWN));
+    add_subu_elem(plugin_context.mods,
+                  build_subu(loc, defn, space_at, UNKNOWN));
   }
 }
 
@@ -96,17 +92,27 @@ void handle_finish_tu(void *gcc_data, void *user_data) {
    * some wacky things within a switch there is a chance
    * we might need to error out */
   DEBUGF("Attempting cleanup...\n");
-  subu_list *list = (subu_list *)user_data;
-  if (list != NULL && list == &recorder) {
-    /* check count here */
-    if (list->count != 0) {
-      for (auto it = list->head; it; it = it->next) {
-        error_at(it->loc, "error with plugin, could not substitute constant\n");
-      }
-    }
-    clear_subu_list(list);
+  SubContext *ctx = (SubContext *)user_data;
+  if (ctx != &plugin_context) {
+    fatal_error(MAX_LOCATION_T, "unable to clear plugin data!");
   } else {
-    error_at(MAX_LOCATION_T, "fatal error with plugin, could not clear data\n");
+    if (ctx->mods) {
+      if (ctx->mods->count != 0) {
+        for (auto it = ctx->mods->head; it; it = it->next) {
+          error_at(it->loc, "unable to substitute constant\n");
+        }
+      }
+      clear_subu_list(ctx->mods);
+    }
+    if (ctx->globalmods) {
+      if (ctx->globalmods->count != 0) {
+        for (auto it = ctx->globalmods->head; it; it = it->next) {
+          error_at(it->loc, "unable to substitute constant\n");
+        }
+      }
+      clear_subu_list(ctx->globalmods);
+    }
+    ctx->prev = NULL;
   }
   deactivate_macro_check();
 }

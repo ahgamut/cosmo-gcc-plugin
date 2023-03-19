@@ -18,15 +18,6 @@
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "ifswitch.h"
 
-struct context {
-  subu_list *list;
-  tree *prev;
-  /* address of the previous statement we walked through,
-   * in case we missed modding it and have to retry */
-  unsigned int swcount;
-  /* count number of switch statements rewritten */
-};
-
 tree build_modded_label(unsigned int swcount, const char *case_str,
                         location_t loc = UNKNOWN_LOCATION) {
   char dest[128] = {0};
@@ -47,7 +38,7 @@ tree build_modded_if_stmt(tree condition, tree then_clause) {
 }
 
 tree modded_case_label(tree t, unsigned int i, tree swcond, vec<tree> *&ifs,
-                       context *ctx, tree *default_label) {
+                       SubContext *ctx, tree *default_label) {
   // debug_tree(t);
   tree result;
   subu_node *use = NULL;
@@ -56,26 +47,26 @@ tree modded_case_label(tree t, unsigned int i, tree swcond, vec<tree> *&ifs,
   if (CASE_LOW(t) == NULL_TREE) {
     DEBUGF("default case\n");
     /* default label of the switch case, needs to be last */
-    result = build_modded_label(ctx->swcount, "__dflt", EXPR_LOCATION(t));
+    result = build_modded_label(ctx->switchcount, "__dflt", EXPR_LOCATION(t));
     *default_label = result;
   } else if (CASE_LOW(t) != NULL_TREE && CASE_HIGH(t) == NULL_TREE) {
     /* a case label */
-    if (get_subu_elem(ctx->list, EXPR_LOCATION(t), &use)
+    if (get_subu_elem(ctx->mods, EXPR_LOCATION(t), &use)
         /* the case is on a line we substituted */
         && check_magic_equal(CASE_LOW(t), use->name)
         /* the case value is the one we substituted */) {
       DEBUGF("modded case\n");
-      result = build_modded_label(ctx->swcount, use->name, EXPR_LOCATION(t));
+      result = build_modded_label(ctx->switchcount, use->name, EXPR_LOCATION(t));
       ifs->safe_push(build_modded_if_stmt(
           build2(EQ_EXPR, integer_type_node, swcond,
                  VAR_NAME_AS_TREE(use->name)),
           build1(GOTO_EXPR, void_type_node, LABEL_EXPR_LABEL(result))));
-      remove_subu_elem(ctx->list, use);
+      remove_subu_elem(ctx->mods, use);
     } else {
       /* a case label that we didn't substitute */
       DEBUGF("unmodded case\n");
       snprintf(case_str, sizeof(case_str), "%lx_", i);
-      result = build_modded_label(ctx->swcount, case_str, EXPR_LOCATION(t));
+      result = build_modded_label(ctx->switchcount, case_str, EXPR_LOCATION(t));
       ifs->safe_push(build_modded_if_stmt(
           build2(EQ_EXPR, integer_type_node, swcond, CASE_LOW(t)),
           build1(GOTO_EXPR, void_type_node, LABEL_EXPR_LABEL(result))));
@@ -85,7 +76,7 @@ tree modded_case_label(tree t, unsigned int i, tree swcond, vec<tree> *&ifs,
     /* CASE_LOW(t) != NULL_TREE && CASE_HIGH(t) != NULL_TREE */
     /* this is a case x .. y sort of range */
     snprintf(case_str, sizeof(case_str), "%lx_", i);
-    result = build_modded_label(ctx->swcount, case_str, EXPR_LOCATION(t));
+    result = build_modded_label(ctx->switchcount, case_str, EXPR_LOCATION(t));
     ifs->safe_push(build_modded_if_stmt(
         build2(TRUTH_ANDIF_EXPR, integer_type_node,
                build2(GE_EXPR, integer_type_node, swcond, CASE_LOW(t)),
@@ -95,7 +86,7 @@ tree modded_case_label(tree t, unsigned int i, tree swcond, vec<tree> *&ifs,
   return result;
 }
 
-tree build_modded_switch_stmt(tree swexpr, context *ctx) {
+tree build_modded_switch_stmt(tree swexpr, SubContext *ctx) {
   int case_count = 0, break_count = 0;
   int has_default = 0;
 
@@ -107,7 +98,7 @@ tree build_modded_switch_stmt(tree swexpr, context *ctx) {
   vec<tree> *ifs;
   vec_alloc(ifs, 0);
 
-  tree exit_label = build_modded_exit_label(ctx->swcount);
+  tree exit_label = build_modded_exit_label(ctx->switchcount);
   tree default_label = NULL_TREE;
 
   for (auto it = tsi_start(swbody); !tsi_end_p(it); tsi_next(&it)) {
@@ -457,7 +448,7 @@ void build_modded_declaration(tree *dxpr, subu_list *list, location_t bound) {
 }
 
 tree check_usage(tree *tp, int *check_subtree, void *data) {
-  context *ctx = (context *)(data);
+  SubContext *ctx = (SubContext *)(data);
   tree t = *tp;
   tree z;
   subu_node *use = NULL;
@@ -465,26 +456,26 @@ tree check_usage(tree *tp, int *check_subtree, void *data) {
   source_range rng;
   rng = EXPR_LOCATION_RANGE(t);
 
-  if (ctx->list->count == 0) {
+  if (ctx->mods->count == 0) {
     /* DEBUGF("substitutions complete\n"); */
     *check_subtree = 0;
     return NULL_TREE;
   }
 
   if (ctx->prev && TREE_CODE(*(ctx->prev)) == DECL_EXPR &&
-      (LOCATION_BEFORE2(ctx->list->start, loc) ||
-       LOCATION_BEFORE2(ctx->list->start, rng.m_start))) {
+      (LOCATION_BEFORE2(ctx->mods->start, loc) ||
+       LOCATION_BEFORE2(ctx->mods->start, rng.m_start))) {
     // debug_tree(t);
     DEBUGF("did we miss a decl?\n");
     if (loc != rng.m_start) loc = rng.m_start;
-    build_modded_declaration(ctx->prev, ctx->list, loc);
+    build_modded_declaration(ctx->prev, ctx->mods, loc);
     ctx->prev = NULL;
   }
 
   if (TREE_CODE(t) == SWITCH_STMT) {
     rng = get_switch_bounds(t);
-    if (valid_subu_bounds(ctx->list, rng.m_start, rng.m_finish) &&
-        count_mods_in_switch(t, ctx->list) > 0) {
+    if (valid_subu_bounds(ctx->mods, rng.m_start, rng.m_finish) &&
+        count_mods_in_switch(t, ctx->mods) > 0) {
       /* this is one of the switch statements
        * where we modified a case label */
       DEBUGF("modding the switch \n");
@@ -494,7 +485,7 @@ tree check_usage(tree *tp, int *check_subtree, void *data) {
       /* due to the above call, I don't need to check
        * any subtrees from this current location */
       *check_subtree = 0;
-      ctx->swcount += 1;
+      ctx->switchcount += 1;
       return NULL_TREE;
     }
   }
@@ -538,10 +529,10 @@ tree check_usage(tree *tp, int *check_subtree, void *data) {
     }
   }
 
-  if (valid_subu_bounds(ctx->list, rng.m_start, rng.m_finish) ||
-      check_loc_in_bound(ctx->list, loc)) {
-    if (get_subu_elem(ctx->list, loc, &use) ||
-        get_subu_elem2(ctx->list, rng, &use)) {
+  if (valid_subu_bounds(ctx->mods, rng.m_start, rng.m_finish) ||
+      check_loc_in_bound(ctx->mods, loc)) {
+    if (get_subu_elem(ctx->mods, loc, &use) ||
+        get_subu_elem2(ctx->mods, rng, &use)) {
       /* we know for sure one of our macro substitutions
        * has been executed either at the location loc,
        * or within the range rng */
@@ -549,7 +540,7 @@ tree check_usage(tree *tp, int *check_subtree, void *data) {
              LOCATION_COLUMN(loc), get_tree_code_str(t));
       if (TREE_CODE(t) == DECL_EXPR) {
         if (build_modded_int_declaration(tp, use)) {
-          remove_subu_elem(ctx->list, use);
+          remove_subu_elem(ctx->mods, use);
           use = NULL;
           DEBUGF("fixed\n");
           ctx->prev = NULL;
@@ -582,10 +573,10 @@ tree check_usage(tree *tp, int *check_subtree, void *data) {
           CALL_EXPR_ARG(t, rep) =
               build1(NOP_EXPR, integer_type_node, VAR_NAME_AS_TREE(use->name));
           // debug_tree(t);
-          remove_subu_elem(ctx->list, use);
+          remove_subu_elem(ctx->mods, use);
           use = NULL;
-          if (get_subu_elem(ctx->list, loc, &use) ||
-              get_subu_elem2(ctx->list, rng, &use)) {
+          if (get_subu_elem(ctx->mods, loc, &use) ||
+              get_subu_elem2(ctx->mods, rng, &use)) {
             /* there is another argument of this call
              * that also had one of our macro expansions */
             goto check_call_args;
@@ -622,10 +613,10 @@ tree check_usage(tree *tp, int *check_subtree, void *data) {
           TREE_OPERAND(t, rep) =
               build1(NOP_EXPR, integer_type_node, VAR_NAME_AS_TREE(use->name));
           // debug_tree(t);
-          remove_subu_elem(ctx->list, use);
+          remove_subu_elem(ctx->mods, use);
           use = NULL;
-          if (get_subu_elem(ctx->list, loc, &use) ||
-              get_subu_elem2(ctx->list, rng, &use)) {
+          if (get_subu_elem(ctx->mods, loc, &use) ||
+              get_subu_elem2(ctx->mods, rng, &use)) {
             /* there is another argument of this expression
              * that also had one of our macro expansions */
             goto check_expr_args;
@@ -642,21 +633,16 @@ tree check_usage(tree *tp, int *check_subtree, void *data) {
   return NULL_TREE;
 }
 
-void process_body(tree *sptr, subu_list *list) {
-  context myctx;
-  myctx.list = list;
-  myctx.prev = NULL;
-  myctx.swcount = 0;
-
-  walk_tree_without_duplicates(sptr, check_usage, &myctx);
+void process_body(tree *sptr, SubContext *ctx) {
+  walk_tree_without_duplicates(sptr, check_usage, ctx);
   int errcount = 0;
   /* now at this stage, all uses of our macros have been
    * fixed, INCLUDING case labels. Let's confirm that: */
-  for (auto it = list->head; it; it = it->next) {
+  for (auto it = ctx->mods->head; it; it = it->next) {
     error_at(it->loc, "unable to substitute constant\n");
     errcount += 1;
   }
   if (errcount != 0) {
-    clear_subu_list(list);
+    clear_subu_list(ctx->mods);
   }
 }

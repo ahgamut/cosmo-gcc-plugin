@@ -47,12 +47,26 @@ subu_list *init_subu_list();
 void add_subu_elem(subu_list *, subu_node *);
 int check_loc_in_bound(subu_list *, location_t);
 int valid_subu_bounds(subu_list *, location_t, location_t);
-int mark_subu_elem(subu_list *, location_t, subu_node **);
 int get_subu_elem(subu_list *, location_t, subu_node **);
 int get_subu_elem2(subu_list *, source_range, subu_node **);
 void remove_subu_elem(subu_list *, subu_node *);
 void pop_subu_list(subu_list *);
 void clear_subu_list(subu_list *);
 void delete_subu_list(subu_list *);
+
+struct SubContext {
+  /* record all macro uses */
+  subu_list *mods;
+  /* copy only global macro uses to this one */
+  subu_list *globalmods;
+  /* address of the previous statement we walked through,
+   * in case we missed modding it and have to retry */
+  tree *prev;
+  /* count number of switch statements rewritten */
+  unsigned int switchcount;
+  /* count number of initializations rewritten */
+  unsigned int initcount;
+};
+
 
 #endif /* SUB_USAGE_H */

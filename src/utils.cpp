@@ -29,6 +29,7 @@ const char *get_tree_code_str(tree expr) {
       return "<unknown>";
   }
 #undef DEFTREECODE
+#undef END_OF_BASE_TREE_CODES
 }
 
 tree get_ifsw_identifier(char *s) {

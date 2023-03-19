@@ -18,17 +18,20 @@
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "ifswitch.h"
 
-int plugin_is_GPL_compatible; /* ISC */
+int plugin_is_GPL_compatible;
 
 static struct plugin_name_args ifswitch_info = {
     .base_name = IFSWITCH, .version = IFSWITCH_VERSION, .help = IFSWITCH_HELP};
-extern subu_list recorder;
+
+/* FREE THE PARTS OF THIS AT PLUGIN_FINISH */
+SubContext plugin_context;
 
 void handle_decl(void *gcc_data, void *user_data) {
   tree t = (tree)gcc_data;
-  subu_list *list = (subu_list *)user_data;
+  SubContext *ctx = (SubContext *)user_data;
+  subu_list *list = ctx->mods;
   if (DECL_INITIAL(t) != NULL && TREE_STATIC(t) &&
-      DECL_CONTEXT(t) == NULL_TREE &&
+      DECL_CONTEXT(t) == NULL_TREE && list->count > 0 &&
       strncmp(IDENTIFIER_NAME(t), "__tmp_ifs_", strlen("__tmp_ifs_"))) {
     auto rng = EXPR_LOCATION_RANGE(t);
     DEBUGF("handle_decl with %s\n", IDENTIFIER_NAME(t));
@@ -39,8 +42,39 @@ void handle_decl(void *gcc_data, void *user_data) {
       DEBUGF("this is just a static int, we can rewrite it %u,%u\n",
              LOCATION_LINE(DECL_SOURCE_LOCATION(t)),
              LOCATION_LINE(rng.m_finish));
-      process_body(&t, list);
+      // process_body(&t, list);
     }
+  }
+}
+
+void handle_finish(void *gcc_data, void *user_data) {
+  SubContext *ctx = (SubContext *)user_data;
+  if (ctx != &plugin_context) {
+    fatal_error(MAX_LOCATION_T, "unable to clear plugin data!");
+  } else {
+    if (ctx->mods) {
+      if (ctx->mods->count != 0) {
+        for (auto it = ctx->mods->head; it; it = it->next) {
+          error_at(it->loc, "unable to substitute constant\n");
+        }
+      }
+      delete_subu_list(ctx->mods);
+      ctx->mods = NULL;
+    }
+    if (ctx->globalmods) {
+      if (ctx->globalmods->count != 0) {
+        for (auto it = ctx->globalmods->head; it; it = it->next) {
+          error_at(it->loc, "unable to substitute constant\n");
+        }
+      }
+      delete_subu_list(ctx->globalmods);
+      ctx->mods = NULL;
+    }
+    ctx->prev = NULL;
+    inform(UNKNOWN_LOCATION, "modified %u switch statements\n", ctx->switchcount);
+    ctx->switchcount = 0;
+    inform(UNKNOWN_LOCATION, "modified %u initializations\n", ctx->initcount);
+    ctx->initcount = 0;
   }
 }
 
@@ -50,17 +84,24 @@ int plugin_init(struct plugin_name_args *plugin_info,
     DEBUGF("GCC version incompatible!\n");
     return 1;
   }
+  plugin_context.mods = init_subu_list();
+  plugin_context.globalmods = init_subu_list();
+  plugin_context.prev = NULL;
+  plugin_context.switchcount = 0;
+  plugin_context.initcount = 0;
 
   DEBUGF("Loading plugin %s on GCC %s...\n", plugin_info->base_name,
          version->basever);
   register_callback(plugin_info->base_name, PLUGIN_INFO, NULL, &ifswitch_info);
   register_callback(plugin_info->base_name, PLUGIN_START_UNIT, handle_start_tu,
-                    NULL);
+                    &plugin_context);
   register_callback(plugin_info->base_name, PLUGIN_PRE_GENERICIZE,
-                    handle_pre_genericize, &recorder);
+                    handle_pre_genericize, &plugin_context);
   register_callback(plugin_info->base_name, PLUGIN_FINISH_DECL, handle_decl,
-                    &recorder);
+                    &plugin_context);
   register_callback(plugin_info->base_name, PLUGIN_FINISH_UNIT,
-                    handle_finish_tu, &recorder);
+                    handle_finish_tu, &plugin_context);
+  register_callback(plugin_info->base_name, PLUGIN_FINISH, handle_finish,
+                    &plugin_context);
   return 0;
 }

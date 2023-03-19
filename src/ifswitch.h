@@ -8,7 +8,7 @@
 #define IFSWITCH_HELP    "convert switch statements to if statements"
 
 /* in process.cpp */
-void process_body(tree *, subu_list *);
+void process_body(tree *, SubContext *);
 
 /* in utils.cpp */
 const char *get_tree_code_str(tree);
