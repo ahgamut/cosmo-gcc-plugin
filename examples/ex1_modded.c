@@ -68,6 +68,13 @@ int adder(int x, int y) {
   return TWO + x + y + TWO;
 }
 
+int dummy(int x) {
+  if (x == 1) {
+    return 1;
+  }
+  return TWO;
+}
+
 void exam_func(int value) {
   const int THREE = 3;
   switch (value) {
@@ -156,5 +163,7 @@ int main(int argc, char **argv) {
   exam_func(8);
   exam_func(22);
   init_func();
+  printf("dummy(1) = %d\n", dummy(1));
+  printf("dummy(2) = %d\n", dummy(2));
   return 0;
 }

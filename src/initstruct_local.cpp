@@ -131,7 +131,7 @@ void modify_local_struct_ctor(tree ctor, subu_list *list, location_t bound) {
     }
     if (found) {
       DEBUGF("found\n");
-      debug_tree(CONSTRUCTOR_ELT(ctor, i)->index);
+      // debug_tree(CONSTRUCTOR_ELT(ctor, i)->index);
       CONSTRUCTOR_ELT(ctor, i)->value = VAR_NAME_AS_TREE(use->name);
       // debug_tree(CONSTRUCTOR_ELT(ctor, i)->value);
       remove_subu_elem(list, use);
