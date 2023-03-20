@@ -25,7 +25,7 @@ int mod_active;
 void check_macro_use(cpp_reader *reader, location_t loc, cpp_hashnode *node) {
   const char *defn = (const char *)cpp_macro_definition(reader, node);
   unsigned space_at = 0;
-  if (strstr(defn, " LITERALLY(") || strstr(defn, "SYMBOLIC(")) {
+  if (strstr(defn, " LITERALLY(") || strstr(defn, " SYMBOLIC(")) {
     DEBUGF("at %u,%u checking macro.. %s\n", LOCATION_LINE(loc),
            LOCATION_COLUMN(loc), defn);
     /* I can subtract pointers because I did the strstr;
@@ -43,7 +43,7 @@ void check_macro_use(cpp_reader *reader, location_t loc, cpp_hashnode *node) {
 void check_macro_define(cpp_reader *reader, location_t loc,
                         cpp_hashnode *node) {
   const char *defn = (const char *)cpp_macro_definition(reader, node);
-  if (strstr(defn, " LITERALLY") || strstr(defn, " SYMBOLIC(")) {
+  if (strstr(defn, " LITERALLY") || strstr(defn, " SYMBOLIC")) {
     DEBUGF("flags:%x, at %u,%u defining macro.. %s\n", node->flags,
            LOCATION_LINE(loc), LOCATION_COLUMN(loc), defn);
     if (mod_active == 0) {

@@ -110,23 +110,26 @@ void modify_local_struct_ctor(tree ctor, subu_list *list, location_t bound) {
   unsigned int iprev = 0;
   bool started = true;
   while (list->count > 0 && LOCATION_BEFORE2(list->start, bound)) {
-    get_subu_elem(list, list->start, &use);
     tree val = NULL_TREE;
     unsigned int i = 0;
     bool found = false;
     FOR_EACH_CONSTRUCTOR_VALUE(CONSTRUCTOR_ELTS(ctor), i, val) {
       DEBUGF("value %u is %s\n", i, get_tree_code_str(val));
       // debug_tree(val);
-      if (TREE_CODE(val) == INTEGER_CST && check_magic_equal(val, use->name)) {
-        found = true;
-        iprev = i;
-        started = false;
-        break;
+      if (TREE_CODE(val) == INTEGER_CST) {
+        for (use = list->head; use; use = use->next) {
+          found = check_magic_equal(val, use->name);
+          if (found) break;
+        }
+        if (found) {
+          iprev = i;
+          started = false;
+          break;
+        }
       } else if (TREE_CODE(val) == CONSTRUCTOR) {
         modify_local_struct_ctor(val, list, bound);
         use = NULL; /* might've gotten stomped */
         if (list->count == 0 || LOCATION_AFTER2(list->start, bound)) return;
-        get_subu_elem(list, list->start, &use);
       }
     }
     if (found) {

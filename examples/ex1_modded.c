@@ -7,14 +7,16 @@ extern void something_2();
 extern void something_3();
 extern const int abcd;
 
-#ifndef LITERALLY
-#define LITERALLY(X) X
+#ifndef SYMBOLIC
+#define SYMBOLIC(X) X
 #endif
 
 #define HAVE_TWO 1
 #if HAVE_TWO
 extern const int TWO;
-#define TWO LITERALLY(TWO)
+extern const int THREE;
+#define TWO   SYMBOLIC(TWO)
+#define THREE LITERALLY(THREE)
 #endif
 
 #define LOLMAX(X) case X:
@@ -33,27 +35,29 @@ struct toyroom {
   struct toy x4;
 };
 
-static int LOLGlobal = TWO;
-
-struct toy t0 = {.id = 30, .value = TWO};
+static int v1 = TWO;
+static int arr1[] = {TWO, THREE, THREE, TWO};
+struct toy t0 = {.id = 30, .value = THREE};
 static struct toy t1 = {.id = 31, .value = TWO};
-static const struct toy ta[] = {[0] = {.id = 1, .value = TWO},
-                                [2] = {.id = 4, .value = TWO},
-                                [1] = {.id = 7, .value = TWO}};
+static const struct toy ta[] = {{.id = 1, .value = TWO},
+                                {.id = THREE, .value = TWO},
+                                {.value = TWO, .id = THREE},
+                                {.id = THREE, .value = 1},
+                                {.id = 7, .value = THREE}};
 static const struct toyroom r1 = {
     .id = 2,
     .value = TWO,
     .x1 = {.id = 1, .value = TWO},
     .x2 = {.id = TWO, .value = 1},
-    .x3 = {.id = TWO, .value = TWO},
-    .x4 = {.id = 1, .value = 1},
+    .x3 = {.value = TWO, .id = THREE},
+    .x4 = {.id = THREE, .value = THREE},
 };
 
 static __attribute__((constructor)) void myctor() {
-  printf("ctor lolglobal is %d\n", LOLGlobal);
+  printf("v1 is %d\n", v1);
   printf("t0.id = %d, t0.value = %d\n", t1.id, t1.value);
   printf("t1.id = %d, t1.value = %d\n", t1.id, t1.value);
-  for (int i = 0; i < 3; ++i) {
+  for (int i = 0; i < 5; ++i) {
     printf("ta[%d].id = %d, ta[%d].value = %d\n", i, ta[i].id, i, ta[i].value);
   }
   printf("r1.id = %d, r1.value = %d\n", r1.id, r1.value);
@@ -65,7 +69,7 @@ static __attribute__((constructor)) void myctor() {
 static int okpls = 1;
 
 int adder(int x, int y) {
-  return TWO + x + y + TWO;
+  return x + y + THREE;
 }
 
 int dummy(int x) {
@@ -76,7 +80,6 @@ int dummy(int x) {
 }
 
 void exam_func(int value) {
-  const int THREE = 3;
   switch (value) {
     case 1: {
       // might create a variable in this scope
@@ -117,7 +120,7 @@ void init_func() {
   static const struct toy t = {.id = 22,
                                /* OMG why do a comment here */
                                .value = TWO};
-  static int vals[] = {1, TWO, 3, TWO, 1};
+  static int vals[] = {1, TWO, THREE, TWO, 1};
 
   printf("bye t.id = %d, t.value = %d\n", t.id, t.value);
   for (int i = 0; i < 5; ++i) {
@@ -125,14 +128,22 @@ void init_func() {
   }
 
   struct toy box[] = {
-      {.id = 1, .value = 1},
-      {.id = 1, .value = TWO},
-      {.id = TWO, .value = 1},
-      {.id = TWO, .value = TWO},
+      {.id = 1, .value = 1},       {.id = THREE, .value = THREE},
+      {.id = THREE, .value = 1},   {.id = TWO, .value = TWO},
+      {.id = TWO, .value = THREE}, {.id = THREE, .value = TWO},
   };
-  for (int i = 0; i < 4; ++i) {
+  for (int i = 0; i < 6; ++i) {
     printf("box[%d]: id=%d, value=%d\n", i, box[i].id, box[i].value);
   }
+
+  static const struct toyroom r2 = {
+      .id = 2,
+      .value = THREE,
+      .x1 = {.id = 1, .value = TWO},
+      .x2 = {.id = TWO, .value = 1},
+      .x3 = {.id = TWO, .value = THREE},
+      .x4 = {.id = THREE, .value = THREE},
+  };
 
   for (int i = 0; i < TWO; i++) {
     printf("%d ", i);

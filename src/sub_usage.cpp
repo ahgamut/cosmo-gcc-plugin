@@ -58,8 +58,8 @@ static void recount_subu_list(subu_list *list) {
   for (it = list->head; it != NULL; it = it->next) {
     i += 1;
     /* is it possible to compare for s and e? */
-    if (s == MAX_LOCATION_T || LOCATION_BEFORE(it->loc, s)) s = it->loc;
-    if (LOCATION_AFTER(it->loc, e)) e = it->loc;
+    if (s == MAX_LOCATION_T || LOCATION_BEFORE2(it->loc, s)) s = it->loc;
+    if (LOCATION_AFTER2(it->loc, e)) e = it->loc;
   }
   if (s > e) {
     s = e;

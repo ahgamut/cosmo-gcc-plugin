@@ -33,7 +33,6 @@ void set_values_based_on_ctor(tree ctor, subu_list *list, tree body, tree lhs,
   unsigned int iprev = 0;
   bool started = true;
   while (list->count > 0 && LOCATION_BEFORE2(list->start, bound)) {
-    get_subu_elem(list, list->start, &use);
     tree index = NULL_TREE;
     tree val = NULL_TREE;
     unsigned int i = 0;
@@ -41,11 +40,16 @@ void set_values_based_on_ctor(tree ctor, subu_list *list, tree body, tree lhs,
     FOR_EACH_CONSTRUCTOR_ELT(CONSTRUCTOR_ELTS(ctor), i, index, val) {
       DEBUGF("value %u is %s\n", i, get_tree_code_str(val));
       if (!started && i <= iprev) continue;
-      if (TREE_CODE(val) == INTEGER_CST && check_magic_equal(val, use->name)) {
-        found = true;
-        iprev = i;
-        started = false;
-        break;
+      if (TREE_CODE(val) == INTEGER_CST) {
+        for (use = list->head; use; use = use->next) {
+          found = check_magic_equal(val, use->name);
+          if (found) break;
+        }
+        if (found) {
+          iprev = i;
+          started = false;
+          break;
+        }
       } else if (TREE_CODE(val) == CONSTRUCTOR) {
         auto sub = access_at(lhs, index);
         // debug_tree(sub);
@@ -64,6 +68,7 @@ void set_values_based_on_ctor(tree ctor, subu_list *list, tree body, tree lhs,
       DEBUGF("found; %d left\n", list->count);
     } else {
       /* we did not find any (more) substitutions to fix */
+      DEBUGF("exiting; %d left\n", list->count);
       break;
     }
   }
@@ -131,8 +136,13 @@ void update_global_decls(tree dcl, SubContext *ctx) {
                  "not sure if modding const structs is good\n");
       TREE_READONLY(dcl) = 0;
     }
-    set_values_based_on_ctor(DECL_INITIAL(dcl), ctx->mods, body, dcl,
-                             ctx->mods->end);
+    if (LOCATION_BEFORE2(ctx->mods->end, input_location)) {
+      set_values_based_on_ctor(DECL_INITIAL(dcl), ctx->mods, body, dcl,
+                               input_location);
+    } else {
+      set_values_based_on_ctor(DECL_INITIAL(dcl), ctx->mods, body, dcl,
+                               ctx->mods->end);
+    }
     /*
     append_to_statement_list(
         build_call_expr(VAR_NAME_AS_TREE("printf"), 2,
@@ -152,8 +162,9 @@ void handle_decl(void *gcc_data, void *user_data) {
       DECL_CONTEXT(t) == NULL_TREE &&
       strncmp(IDENTIFIER_NAME(t), "__tmp_ifs_", strlen("__tmp_ifs_"))) {
     auto rng = EXPR_LOCATION_RANGE(t);
-    rng.m_finish = DECL_SOURCE_LOCATION(t);
-    rng.m_start = input_location;
+    rng.m_start = DECL_SOURCE_LOCATION(t);
+    rng.m_finish = input_location;
+
     DEBUGF("handle_decl with %s %u,%u - %u-%u\n", IDENTIFIER_NAME(t),
            LOCATION_LINE(rng.m_start), LOCATION_COLUMN(rng.m_start),
            LOCATION_LINE(rng.m_finish), LOCATION_COLUMN(rng.m_finish));
