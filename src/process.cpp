@@ -41,6 +41,7 @@ tree check_usage(tree *tp, int *check_subtree, void *data) {
     if (loc != rng.m_start) loc = rng.m_start;
     build_modded_declaration(ctx->prev, ctx, loc);
     ctx->prev = NULL;
+    check_empty_subu_list(ctx->mods, loc);
   }
 
   if (TREE_CODE(t) == SWITCH_STMT) {

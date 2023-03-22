@@ -179,11 +179,16 @@ void delete_subu_list(subu_list *list) {
   DEBUGF("freeing subu_list at %p\n", list);
 }
 
-void check_empty_subu_list(subu_list *list) {
+void check_empty_subu_list(subu_list *list, location_t start) {
+  /* we should have modded all locations before start, and so
+   * list should not contain any entries which have a location 
+   * before start */
   int errcount = 0;
   for (auto it = list->head; it; it = it->next) {
-    error_at(it->loc, "unable to substitute constant\n");
-    errcount += 1;
+    if (start == MAX_LOCATION_T || LOCATION_BEFORE2(it->loc, start)) {
+      error_at(it->loc, "unable to substitute constant\n");
+      errcount += 1;
+    }
   }
   if (errcount != 0) {
     /* DON'T DELETE! */

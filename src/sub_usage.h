@@ -53,7 +53,7 @@ void remove_subu_elem(subu_list *, subu_node *);
 void pop_subu_list(subu_list *);
 void clear_subu_list(subu_list *);
 void delete_subu_list(subu_list *);
-void check_empty_subu_list(subu_list *);
+void check_empty_subu_list(subu_list *list, location_t start = MAX_LOCATION_T);
 
 struct SubContext {
   /* record all macro uses */
