@@ -16,7 +16,7 @@
 │ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR             │
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
-#include "sub_usage.h"
+#include "subcontext.h"
 
 subu_node *build_subu(const location_t loc, const char *name,
                       unsigned int namelen, SubstType tp) {

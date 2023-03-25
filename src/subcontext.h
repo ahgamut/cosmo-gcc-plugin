@@ -45,6 +45,7 @@ int get_subu_elem(subu_list *, location_t, subu_node **);
 int get_subu_elem2(subu_list *, source_range, subu_node **);
 void remove_subu_elem(subu_list *, subu_node *);
 
+/* Substitution Context */
 struct SubContext {
   /* record all macro uses */
   subu_list *mods;

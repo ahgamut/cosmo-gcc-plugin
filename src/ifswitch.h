@@ -1,7 +1,7 @@
 #ifndef IFSWITCH_H
 #define IFSWITCH_H
 #include "headers.h"
-#include "sub_usage.h"
+#include "subcontext.h"
 
 #define IFSWITCH         "ifswitch"
 #define IFSWITCH_VERSION "0.0.1"
