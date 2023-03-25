@@ -30,9 +30,6 @@ struct _subu_node {
 
 typedef struct _subu_node subu_node;
 
-subu_node *build_subu(const location_t, const char *, unsigned int, SubstType);
-void delete_subu(subu_node *);
-
 struct _subu_list {
   subu_node *head;
   /* inclusive bounds, range containing all recorded substitutions */
@@ -42,18 +39,11 @@ struct _subu_list {
 };
 typedef struct _subu_list subu_list;
 
-subu_list *init_subu_list();
-
-void add_subu_elem(subu_list *, subu_node *);
 int check_loc_in_bound(subu_list *, location_t);
 int valid_subu_bounds(subu_list *, location_t, location_t);
 int get_subu_elem(subu_list *, location_t, subu_node **);
 int get_subu_elem2(subu_list *, source_range, subu_node **);
 void remove_subu_elem(subu_list *, subu_node *);
-void pop_subu_list(subu_list *);
-void clear_subu_list(subu_list *);
-void delete_subu_list(subu_list *);
-void check_empty_subu_list(subu_list *list, location_t start = MAX_LOCATION_T);
 
 struct SubContext {
   /* record all macro uses */
@@ -67,7 +57,15 @@ struct SubContext {
   unsigned int initcount;
   /* count number of other substitutions rewritten */
   unsigned int subcount;
+  /* if zero, it means we haven't started or something
+   * went wrong somewhere */
+  int active;
 };
 
+void add_context_subu(SubContext *, const location_t, const char *,
+                      unsigned int, SubstType);
+void construct_context(SubContext *);
+void check_context_clear(SubContext *, location_t);
+void cleanup_context(SubContext *);
 
 #endif /* SUB_USAGE_H */

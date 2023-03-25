@@ -20,7 +20,6 @@
 
 /* DON'T FREE THE PARTS OF THIS */
 extern SubContext plugin_context;
-int mod_active;
 
 void check_macro_use(cpp_reader *reader, location_t loc, cpp_hashnode *node) {
   const char *defn = (const char *)cpp_macro_definition(reader, node);
@@ -35,22 +34,20 @@ void check_macro_use(cpp_reader *reader, location_t loc, cpp_hashnode *node) {
     /* I don't have enough info to say whether
      * this is a case label or just a normal statement
      * inside a switch, or something outside a switch */
-    add_subu_elem(plugin_context.mods,
-                  build_subu(loc, defn, space_at, UNKNOWN));
+    add_context_subu(&plugin_context, loc, defn, space_at, UNKNOWN);
   }
 }
 
 void check_macro_define(cpp_reader *reader, location_t loc,
                         cpp_hashnode *node) {
   const char *defn = (const char *)cpp_macro_definition(reader, node);
-  if (strstr(defn, " LITERALLY") || strstr(defn, " SYMBOLIC")) {
+  if (plugin_context.active == 0 &&
+      (strstr(defn, " LITERALLY") || strstr(defn, " SYMBOLIC"))) {
     DEBUGF("flags:%x, at %u,%u defining macro.. %s\n", node->flags,
            LOCATION_LINE(loc), LOCATION_COLUMN(loc), defn);
-    if (mod_active == 0) {
-      DEBUGF("activating macro logging...\n");
-      mod_active = 1;
-      cpp_get_callbacks(reader)->used = check_macro_use;
-    }
+    DEBUGF("activating macro logging...\n");
+    plugin_context.active = 1;
+    cpp_get_callbacks(reader)->used = check_macro_use;
   }
 }
 
@@ -76,7 +73,7 @@ void deactivate_macro_check(cpp_reader *reader = NULL) {
     cbs->define = NULL;
   }
   if (cbs && cbs->used == check_macro_use) {
-    mod_active = 0;
+    plugin_context.active = 0;
     cbs->used = NULL;
   }
 }
@@ -87,23 +84,12 @@ void handle_start_tu(void *gcc_data, void *user_data) {
 }
 
 void handle_finish_tu(void *gcc_data, void *user_data) {
-  /* here we would check if all our transformations
-   * actually happened or not, because if someone tried
-   * some wacky things within a switch there is a chance
-   * we might need to error out */
   DEBUGF("Attempting cleanup...\n");
   SubContext *ctx = (SubContext *)user_data;
   if (ctx != &plugin_context) {
     fatal_error(MAX_LOCATION_T, "unable to clear plugin data!");
   } else {
-    if (ctx->mods) {
-      if (ctx->mods->count != 0) {
-        for (auto it = ctx->mods->head; it; it = it->next) {
-          error_at(it->loc, "unable to substitute constant\n");
-        }
-      }
-      clear_subu_list(ctx->mods);
-    }
+    check_context_clear(ctx, MAX_LOCATION_T);
     ctx->prev = NULL;
   }
   deactivate_macro_check();

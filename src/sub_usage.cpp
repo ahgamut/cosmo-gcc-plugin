@@ -179,9 +179,9 @@ void delete_subu_list(subu_list *list) {
   DEBUGF("freeing subu_list at %p\n", list);
 }
 
-void check_empty_subu_list(subu_list *list, location_t start) {
+int check_empty_subu_list(subu_list *list, location_t start) {
   /* we should have modded all locations before start, and so
-   * list should not contain any entries which have a location 
+   * list should not contain any entries which have a location
    * before start */
   int errcount = 0;
   for (auto it = list->head; it; it = it->next) {
@@ -194,4 +194,41 @@ void check_empty_subu_list(subu_list *list, location_t start) {
     /* DON'T DELETE! */
     clear_subu_list(list);
   }
+  return errcount == 0;
+}
+
+void construct_context(SubContext *ctx) {
+  ctx->active = 0;
+  ctx->mods = init_subu_list();
+  ctx->prev = NULL;
+  ctx->switchcount = 0;
+  ctx->initcount = 0;
+  ctx->subcount = 0;
+}
+
+void add_context_subu(SubContext *ctx, const location_t loc, const char *defn,
+                      unsigned int at, SubstType st) {
+  // assert(ctx->mods != NULL);
+  add_subu_elem(ctx->mods, build_subu(loc, defn, at, st));
+}
+
+void check_context_clear(SubContext *ctx, location_t start) {
+  if (ctx->mods) {
+    ctx->active = check_empty_subu_list(ctx->mods, start);
+  }
+}
+
+void cleanup_context(SubContext *ctx) {
+  check_context_clear(ctx, MAX_LOCATION_T);
+  if (ctx->mods) {
+    delete_subu_list(ctx->mods);
+    ctx->mods = NULL;
+  }
+  ctx->prev = NULL;
+  inform(UNKNOWN_LOCATION, "rewrote %u switch statements", ctx->switchcount);
+  ctx->switchcount = 0;
+  inform(UNKNOWN_LOCATION, "modified %u initializations", ctx->initcount);
+  ctx->initcount = 0;
+  inform(UNKNOWN_LOCATION, "modified %u other macro uses", ctx->subcount);
+  ctx->subcount = 0;
 }

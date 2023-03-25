@@ -14,7 +14,7 @@ tree build_modded_switch_stmt(tree, SubContext *);
 
 /* in initstruct_local.cpp */
 void build_modded_declaration(tree *, SubContext *, location_t);
-int build_modded_int_declaration(tree *, subu_node *);
+int build_modded_int_declaration(tree *, SubContext *, subu_node *);
 tree copy_struct_ctor(tree);
 void modify_local_struct_ctor(tree, subu_list *, location_t);
 

@@ -23,7 +23,7 @@ static inline tree build_modded_if_stmt(tree condition, tree then_clause,
   return build3(COND_EXPR, void_type_node, condition, then_clause, else_clause);
 }
 
-int build_modded_int_declaration(tree *dxpr, subu_node *use) {
+int build_modded_int_declaration(tree *dxpr, SubContext *ctx, subu_node *use) {
   char chk[128];
   tree dcl = DECL_EXPR_DECL(*dxpr);
 
@@ -34,11 +34,13 @@ int build_modded_int_declaration(tree *dxpr, subu_node *use) {
       /* actually I can, but the issue is if one of gcc's optimizations
        * perform constant folding(and they do), I don't know all the spots
        * where this variable has been folded, so I can't substitute there */
+      ctx->active = 0;
       return 0;
     }
 
     if (!TREE_STATIC(dcl)) {
       DECL_INITIAL(dcl) = VAR_NAME_AS_TREE(use->name);
+      remove_subu_elem(ctx->mods, use);
       return 1;
     }
 
@@ -100,6 +102,7 @@ int build_modded_int_declaration(tree *dxpr, subu_node *use) {
     /* overwrite the input tree with our new statements */
     *dxpr = res;
     // debug_tree(res);
+    remove_subu_elem(ctx->mods, use);
     return 1;
   }
   return 0;
@@ -174,8 +177,7 @@ void build_modded_declaration(tree *dxpr, SubContext *ctx, location_t bound) {
 
   if (INTEGRAL_TYPE_P(TREE_TYPE(dcl))) {
     get_subu_elem(list, list->start, &use);
-    if (build_modded_int_declaration(dxpr, use)) {
-      remove_subu_elem(list, use);
+    if (build_modded_int_declaration(dxpr, ctx, use)) {
       use = NULL;
       ctx->initcount += 1;
     }

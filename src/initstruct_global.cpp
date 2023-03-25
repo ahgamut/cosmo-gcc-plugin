@@ -103,7 +103,7 @@ void update_global_decls(tree dcl, SubContext *ctx) {
    *
    * a unique constructor for each declaration. probably
    * we could have a common constructor for the entire
-   * file, but that's left an exercise for the reader. */
+   * file, but that's left as an exercise for the reader. */
   if (INTEGRAL_TYPE_P(TREE_TYPE(dcl)) &&
       get_subu_elem(ctx->mods, ctx->mods->start, &use) &&
       /* use is non-NULL if get_subu_elem succeeds */
@@ -113,7 +113,7 @@ void update_global_decls(tree dcl, SubContext *ctx) {
       /* actually I can, but the issue is if one of gcc's optimizations
        * perform constant folding(and they do), I don't know all the spots
        * where this variable has been folded, so I can't substitute there */
-      clear_subu_list(ctx->mods);
+      ctx->active = 0;
       return;
     }
     append_to_statement_list(
@@ -158,7 +158,7 @@ void update_global_decls(tree dcl, SubContext *ctx) {
 void handle_decl(void *gcc_data, void *user_data) {
   tree t = (tree)gcc_data;
   SubContext *ctx = (SubContext *)user_data;
-  if (ctx->mods->count > 0 && DECL_INITIAL(t) != NULL &&
+  if (ctx->active && ctx->mods->count > 0 && DECL_INITIAL(t) != NULL &&
       DECL_CONTEXT(t) == NULL_TREE &&
       strncmp(IDENTIFIER_NAME(t), "__tmp_ifs_", strlen("__tmp_ifs_"))) {
     auto rng = EXPR_LOCATION_RANGE(t);
@@ -172,6 +172,6 @@ void handle_decl(void *gcc_data, void *user_data) {
     update_global_decls(t, ctx);
     /* now at this stage, all uses of our macros have been
      * fixed, INCLUDING case labels. Let's confirm that: */
-    check_empty_subu_list(ctx->mods);
+    check_context_clear(ctx, MAX_LOCATION_T);
   }
 }
