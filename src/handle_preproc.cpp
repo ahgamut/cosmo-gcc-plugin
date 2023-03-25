@@ -23,32 +23,50 @@ extern SubContext plugin_context;
 
 void check_macro_use(cpp_reader *reader, location_t loc, cpp_hashnode *node) {
   const char *defn = (const char *)cpp_macro_definition(reader, node);
-  unsigned space_at = 0;
-  if (strstr(defn, " LITERALLY(") || strstr(defn, " SYMBOLIC(")) {
+  /* the definitions I am looking for are EXACTLY of the form
+   *
+   * #define X SYMBOLIC(X)
+   *          ^^^^^^^^^^    ----> (test for this)
+   * So the left-hand side of the macro (ie before the space)
+   * should be the same as the argument inside the macro
+   * (ie within the parentheses), otherwise this substitution
+   * is most likely not worth recording, or an error. */
+  if (plugin_context.active == 1 && strstr(defn, " SYMBOLIC(")) {
     DEBUGF("at %u,%u checking macro.. %s\n", LOCATION_LINE(loc),
            LOCATION_COLUMN(loc), defn);
-    /* I can subtract pointers because I did the strstr;
-     * I just want the name of macro (ie the 'constant'
-     * that is being LITERALLY used) */
-    space_at = strchr(defn, ' ') - defn;
-    /* I don't have enough info to say whether
-     * this is a case label or just a normal statement
-     * inside a switch, or something outside a switch */
-    add_context_subu(&plugin_context, loc, defn, space_at, UNKNOWN);
+    const char *arg_start = strstr(defn, "(");
+    const char *arg_end = strstr(defn, ")");
+    if (!arg_start || !arg_end) return;
+    arg_start += 1; /* move from '(' to start of arg */
+    if (strncmp(defn, arg_start, arg_end - arg_start) == 0) {
+      /* This is most likely a substitution we need to
+       * record, but I don't have enough info to say whether
+       * this is a case label or just a normal statement
+       * inside a switch, or something outside a switch */
+      add_context_subu(&plugin_context, loc, defn, (arg_end - arg_start),
+                       UNKNOWN);
+    } else {
+      cpp_error_at(reader, CPP_DL_ERROR, loc, "unable to check macro usage\n");
+      plugin_context.active = 0;
+    }
   }
 }
 
 void check_macro_define(cpp_reader *reader, location_t loc,
                         cpp_hashnode *node) {
   const char *defn = (const char *)cpp_macro_definition(reader, node);
-  if (plugin_context.active == 0 &&
-      (strstr(defn, " LITERALLY") || strstr(defn, " SYMBOLIC"))) {
-    DEBUGF("flags:%x, at %u,%u defining macro.. %s\n", node->flags,
-           LOCATION_LINE(loc), LOCATION_COLUMN(loc), defn);
-    DEBUGF("activating macro logging...\n");
+  if (plugin_context.active == 0 && strstr(defn, " SYMBOLIC(")) {
     plugin_context.active = 1;
     cpp_get_callbacks(reader)->used = check_macro_use;
+    inform(loc, "recording usage of SYMBOLIC() macro...\n");
   }
+  /* TODO: at this point in execution, is it possible to
+   *
+   * #define __tmp_ifs_X <number we control>
+   *
+   * and use this instead of defining __tmp constants in 
+   * tmpconst.h? update a hash-table here, to use later in
+   * lookups and substitution checks during the parsing. */
 }
 
 void activate_macro_check(cpp_reader *reader = NULL) {
@@ -56,9 +74,13 @@ void activate_macro_check(cpp_reader *reader = NULL) {
     reader = parse_in; /* TODO: figure out a better way */
   }
   cpp_callbacks *cbs = cpp_get_callbacks(reader);
-
-  DEBUGF("cbs is %p, NULL? %d\n", cbs, cbs == NULL);
-  DEBUGF("cbs->define is %p, NULL? %d\n", cbs->define, cbs->define == NULL);
+  cpp_options *opts = cpp_get_options(reader);
+  if (opts->lang == CLK_ASM) {
+    inform(UNKNOWN_LOCATION, "plugin does not activate for ASM\n");
+    return;
+  }
+  cpp_undef(reader, "SYMBOLIC");
+  cpp_define_formatted(reader, "SYMBOLIC(X) = __tmp_ifs_ ## X");
   if (cbs && cbs->define == NULL) {
     cbs->define = check_macro_define;
   }
@@ -73,13 +95,14 @@ void deactivate_macro_check(cpp_reader *reader = NULL) {
     cbs->define = NULL;
   }
   if (cbs && cbs->used == check_macro_use) {
-    plugin_context.active = 0;
     cbs->used = NULL;
   }
+  plugin_context.active = 0;
+  cpp_undef(reader, "SYMBOLIC");
+  cpp_define_formatted(reader, "SYMBOLIC(X) = X");
 }
 
 void handle_start_tu(void *gcc_data, void *user_data) {
-  DEBUGF("handle_start_tu\n");
   activate_macro_check();
 }
 

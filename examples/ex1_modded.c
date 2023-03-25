@@ -16,7 +16,7 @@ extern const int abcd;
 extern const int TWO;
 extern const int THREE;
 #define TWO   SYMBOLIC(TWO)
-#define THREE LITERALLY(THREE)
+#define THREE SYMBOLIC(THREE)
 #endif
 
 #define LOLMAX(X) case X:
