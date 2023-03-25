@@ -69,6 +69,7 @@ static __attribute__((constructor)) void myctor() {
 static int okpls = 1;
 
 int adder(int x, int y) {
+  printf("x is %d, y is %d\n", x, y);
   return x + y + THREE;
 }
 
@@ -176,5 +177,7 @@ int main(int argc, char **argv) {
   init_func();
   printf("dummy(1) = %d\n", dummy(1));
   printf("dummy(2) = %d\n", dummy(2));
+  adder(1, TWO);
+  /* adder(-420, TWO); this is bad */
   return 0;
 }
