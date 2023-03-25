@@ -47,11 +47,11 @@ int build_modded_int_declaration(tree *dxpr, SubContext *ctx, subu_node *use) {
     DEBUGF("fixing decl for a static integer\n");
     /* (*dxpr), the statement we have is this:
      *
-     * static int myvalue = __tmp_ifs_VAR;
+     * static int myvalue = __tmpcosmo_VAR;
      *
      * we're going to modify it to this:
      *
-     * static int myvalue = __tmp_ifs_VAR;
+     * static int myvalue = __tmpcosmo_VAR;
      * static uint8 __chk_ifs_myvalue = 0;
      * if(__chk_ifs_myvalue != 1) {
      *   __chk_ifs_myvalue = 1;
@@ -197,11 +197,11 @@ void build_modded_declaration(tree *dxpr, SubContext *ctx, location_t bound) {
       DEBUGF("fixing decl for a static struct\n");
       /* (*dxpr), the statement we have is this:
        *
-       * static struct toy myvalue = {.x=1, .y=__tmp_ifs_VAR};
+       * static struct toy myvalue = {.x=1, .y=__tmpcosmo_VAR};
        *
        * we're going to modify it to this:
        *
-       * static struct toy myvalue = {.x=1, .y=__tmp_ifs_VAR};
+       * static struct toy myvalue = {.x=1, .y=__tmpcosmo_VAR};
        * static uint8 __chk_ifs_myvalue = 0;
        * if(__chk_ifs_myvalue != 1) {
        *   struct toy __tmp_myvalue = {.x=1, .y=VAR};
@@ -232,7 +232,7 @@ void build_modded_declaration(tree *dxpr, SubContext *ctx, location_t bound) {
       // debug_tree(BLOCK_SUPERCONTEXT(tmpscope));
 
       /* build __tmp_myvalue */
-      snprintf(chk, sizeof(chk), "__tmp_ifs_%s", IDENTIFIER_NAME(dcl));
+      snprintf(chk, sizeof(chk), "__tmpcosmo_%s", IDENTIFIER_NAME(dcl));
       tree tmpvar = build_decl(DECL_SOURCE_LOCATION(dcl), VAR_DECL,
                                get_identifier(chk), TREE_TYPE(dcl));
       DECL_INITIAL(tmpvar) = copy_struct_ctor(DECL_INITIAL(dcl));

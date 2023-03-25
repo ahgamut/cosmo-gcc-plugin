@@ -33,8 +33,8 @@ const char *get_tree_code_str(tree expr) {
 }
 
 tree get_ifsw_identifier(char *s) {
-  char *result = (char *)xmalloc(strlen("__tmp_ifs_") + strlen(s) + 1);
-  strcpy(result, "__tmp_ifs_");
+  char *result = (char *)xmalloc(strlen("__tmpcosmo_") + strlen(s) + 1);
+  strcpy(result, "__tmpcosmo_");
   strcat(result, s);
   tree t = lookup_name(get_identifier(result));
   free(result);

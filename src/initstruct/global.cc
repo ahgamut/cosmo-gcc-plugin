@@ -81,16 +81,16 @@ void update_global_decls(tree dcl, SubContext *ctx) {
 
   /* dcl, the global declaration we have is like these:
    *
-   * static int foo = __tmp_ifs_VAR;
-   * static struct toy myvalue = {.x=1, .y=__tmp_ifs_VAR};
+   * static int foo = __tmpcosmo_VAR;
+   * static struct toy myvalue = {.x=1, .y=__tmpcosmo_VAR};
    *
    * we're going to add functions as follows:
    *
-   * static int foo = __tmp_ifs_VAR;
+   * static int foo = __tmpcosmo_VAR;
    * __attribute__((constructor)) __hidden_ctor1() {
    *   foo = VAR;
    * }
-   * static struct toy myvalue = {.x=1, .y=__tmp_ifs_VAR};
+   * static struct toy myvalue = {.x=1, .y=__tmpcosmo_VAR};
    * __attribute__((constructor)) __hidden_ctor2() {
    *    myvalue.y = VAR;
    * }
@@ -160,7 +160,7 @@ void handle_decl(void *gcc_data, void *user_data) {
   SubContext *ctx = (SubContext *)user_data;
   if (ctx->active && ctx->mods->count > 0 && DECL_INITIAL(t) != NULL &&
       DECL_CONTEXT(t) == NULL_TREE &&
-      strncmp(IDENTIFIER_NAME(t), "__tmp_ifs_", strlen("__tmp_ifs_"))) {
+      strncmp(IDENTIFIER_NAME(t), "__tmpcosmo_", strlen("__tmpcosmo_"))) {
     auto rng = EXPR_LOCATION_RANGE(t);
     rng.m_start = DECL_SOURCE_LOCATION(t);
     rng.m_finish = input_location;

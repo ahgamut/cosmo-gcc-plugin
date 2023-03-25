@@ -56,7 +56,7 @@ unsigned int count_mods_in_switch(tree swexpr, subu_list *list) {
 tree build_modded_label(unsigned int swcount, const char *case_str,
                         location_t loc = UNKNOWN_LOCATION) {
   char dest[128] = {0};
-  snprintf(dest, sizeof(dest), "__tmp_ifs_%u_%s", swcount, case_str);
+  snprintf(dest, sizeof(dest), "__tmpcosmo_%u_%s", swcount, case_str);
   tree lab = build_decl(loc, LABEL_DECL, get_identifier(dest), void_type_node);
   /* gcc's GIMPLE needs to know that this label
    * is within the current function declaration */

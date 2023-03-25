@@ -62,7 +62,7 @@ void check_macro_define(cpp_reader *reader, location_t loc,
   }
   /* TODO: at this point in execution, is it possible to
    *
-   * #define __tmp_ifs_X <number we control>
+   * #define __tmpcosmo_X <number we control>
    *
    * and use this instead of defining __tmp constants in 
    * tmpconst.h? update a hash-table here, to use later in
@@ -80,7 +80,7 @@ void activate_macro_check(cpp_reader *reader = NULL) {
     return;
   }
   cpp_undef(reader, "SYMBOLIC");
-  cpp_define_formatted(reader, "SYMBOLIC(X) = __tmp_ifs_ ## X");
+  cpp_define_formatted(reader, "SYMBOLIC(X) = __tmpcosmo_ ## X");
   if (cbs && cbs->define == NULL) {
     cbs->define = check_macro_define;
   }
