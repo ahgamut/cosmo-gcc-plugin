@@ -61,7 +61,7 @@ static void recount_subu_list(subu_list *list) {
     if (s == MAX_LOCATION_T || LOCATION_BEFORE2(it->loc, s)) s = it->loc;
     if (LOCATION_AFTER2(it->loc, e)) e = it->loc;
   }
-  if (s > e) {
+  if (LOCATION_AFTER2(s, e)) {
     s = e;
   }
   list->start = s;
@@ -208,7 +208,7 @@ void construct_context(SubContext *ctx) {
 
 void add_context_subu(SubContext *ctx, const location_t loc, const char *defn,
                       unsigned int at, SubstType st) {
-  // assert(ctx->mods != NULL);
+  if (ctx->mods == NULL) return;
   add_subu_elem(ctx->mods, build_subu(loc, defn, at, st));
 }
 

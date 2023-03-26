@@ -159,8 +159,14 @@ void handle_decl(void *gcc_data, void *user_data) {
   tree t = (tree)gcc_data;
   SubContext *ctx = (SubContext *)user_data;
   if (ctx->active && ctx->mods->count > 0 && DECL_INITIAL(t) != NULL &&
-      DECL_CONTEXT(t) == NULL_TREE &&
-      strncmp(IDENTIFIER_NAME(t), "__tmpcosmo_", strlen("__tmpcosmo_"))) {
+      DECL_CONTEXT(t) == NULL_TREE) {
+    int internal_use =
+        !strncmp(IDENTIFIER_NAME(t), "__tmpcosmo_", strlen("__tmpcosmo_"));
+    if (internal_use || DECL_EXTERNAL(t)) {
+      error_at(input_location, "the SYMBOLIC is before the declaration!\n");
+      ctx->active = 0;
+      return;
+    }
     auto rng = EXPR_LOCATION_RANGE(t);
     rng.m_start = DECL_SOURCE_LOCATION(t);
     rng.m_finish = input_location;

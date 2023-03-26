@@ -89,7 +89,7 @@ void exam_func(int value) {
       break;
     }
 
-#ifdef HAVE_TWO
+#ifdef TWO
       LOLMAX(TWO)
       something_2();
       printf("you got a 2\n");

@@ -22,6 +22,8 @@
 extern SubContext plugin_context;
 
 void check_macro_use(cpp_reader *reader, location_t loc, cpp_hashnode *node) {
+  if (plugin_context.active != 1 || !cpp_user_macro_p(node)) return;
+  if (LOCATION_COLUMN(loc) == 0) return; /* this is an ifdef? */
   const char *defn = (const char *)cpp_macro_definition(reader, node);
   /* the definitions I am looking for are EXACTLY of the form
    *
@@ -31,12 +33,12 @@ void check_macro_use(cpp_reader *reader, location_t loc, cpp_hashnode *node) {
    * should be the same as the argument inside the macro
    * (ie within the parentheses), otherwise this substitution
    * is most likely not worth recording, or an error. */
-  if (plugin_context.active == 1 && strstr(defn, " SYMBOLIC(")) {
+  if (defn && strstr(defn, " SYMBOLIC(") && !strstr(defn, "__tmpcosmo_")) {
     DEBUGF("at %u,%u checking macro.. %s\n", LOCATION_LINE(loc),
            LOCATION_COLUMN(loc), defn);
     const char *arg_start = strstr(defn, "(");
     const char *arg_end = strstr(defn, ")");
-    if (!arg_start || !arg_end) return;
+    if (!arg_start || !arg_end || arg_end - arg_start < 1) return;
     arg_start += 1; /* move from '(' to start of arg */
     if (strncmp(defn, arg_start, arg_end - arg_start) == 0) {
       /* This is most likely a substitution we need to
@@ -57,14 +59,17 @@ void check_macro_define(cpp_reader *reader, location_t loc,
   const char *defn = (const char *)cpp_macro_definition(reader, node);
   if (plugin_context.active == 0 && strstr(defn, " SYMBOLIC(")) {
     plugin_context.active = 1;
-    cpp_get_callbacks(reader)->used = check_macro_use;
+    cpp_callbacks *cbs = cpp_get_callbacks(reader);
+    if (cbs && cbs->used == NULL) {
+      cbs->used = check_macro_use;
+    }
     inform(loc, "recording usage of SYMBOLIC() macro...\n");
   }
   /* TODO: at this point in execution, is it possible to
    *
    * #define __tmpcosmo_X <number we control>
    *
-   * and use this instead of defining __tmp constants in 
+   * and use this instead of defining __tmp constants in
    * tmpconst.h? update a hash-table here, to use later in
    * lookups and substitution checks during the parsing. */
 }

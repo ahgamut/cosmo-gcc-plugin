@@ -18,6 +18,112 @@
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include <portcosmo.h>
 
+int check_expr(tree *tp, SubContext *ctx, location_t loc, source_range rng) {
+  tree t = *tp;
+  subu_node *use = NULL;
+  int found = 0;
+  if (TREE_CODE(t) == DECL_EXPR) {
+    get_subu_elem(ctx->mods, loc, &use) || get_subu_elem2(ctx->mods, rng, &use);
+    if (build_modded_int_declaration(tp, ctx, use)) {
+      use = NULL;
+      ctx->initcount += 1;
+      DEBUGF("fixed\n");
+      ctx->prev = NULL;
+      found = 1;
+    }
+  } else if (TREE_CODE(t) == BIND_EXPR) {
+    // debug_tree(t);
+    auto body = BIND_EXPR_BODY(t);
+    if (EXPR_P(body) && check_expr(&body, ctx, loc, rng)) {
+      found += 1;
+    } else if (TREE_CODE(body) == STATEMENT_LIST) {
+      for (auto it = tsi_start(body); !tsi_end_p(it); tsi_next(&it)) {
+        auto tp2 = tsi_stmt_ptr(it);
+        if (EXPR_P(*tp2) && check_expr(tp2, ctx, loc, rng)) {
+          found += 1;
+        }
+      }
+    }
+    // debug_tree(t);
+  } else if (TREE_CODE(t) == CALL_EXPR) {
+    call_expr_arg_iterator it;
+    tree arg = NULL_TREE;
+    while (get_subu_elem(ctx->mods, loc, &use) ||
+           get_subu_elem2(ctx->mods, rng, &use)) {
+      int i = 0;
+      int rep = -1;
+      FOR_EACH_CALL_EXPR_ARG(arg, it, t) {
+        DEBUGF("arg %d is %s (%s)\n", i, get_tree_code_str(arg), use->name);
+        // debug_tree(arg);
+        if ((TREE_CODE(arg) == INTEGER_CST &&
+             check_magic_equal(arg, use->name)) ||
+            (TREE_CODE(arg) == NOP_EXPR &&
+             TREE_OPERAND(arg, 0) == get_ifsw_identifier(use->name))) {
+          DEBUGF("yup this is the constant we want\n");
+          CALL_EXPR_ARG(t, i) =
+              build1(NOP_EXPR, integer_type_node, VAR_NAME_AS_TREE(use->name));
+          remove_subu_elem(ctx->mods, use);
+          use = NULL;
+          ctx->subcount += 1;
+          rep = i;
+          found += 1;
+          break;
+        } else if (EXPR_P(arg) && check_expr(&arg, ctx, loc, rng)) {
+          use = NULL;
+          found += 1;
+          rep = i;
+          break;
+        }
+        i += 1;
+      }
+      if (rep == -1) break;
+    }
+    /* TODO: did we substitute something we weren't
+     * supposed to substitute? check via hash-set? */
+  } else {
+    DEBUGF("this contains a substitution and it is... a %s?\n",
+           get_tree_code_str(t));
+    DEBUGF("how many operands do you have? %d\n", TREE_OPERAND_LENGTH(t));
+    // debug_tree(t);
+    tree arg = NULL_TREE;
+    int n = TREE_OPERAND_LENGTH(t);
+    while (get_subu_elem(ctx->mods, loc, &use) ||
+           get_subu_elem2(ctx->mods, rng, &use)) {
+      int i = 0;
+      int rep = -1;
+      for (i = 0; i < n; ++i) {
+        arg = TREE_OPERAND(t, i);
+        if (!arg || arg == NULL_TREE) continue;
+        DEBUGF("arg %d is %s (%s)\n", i, get_tree_code_str(arg), use->name);
+        // debug_tree(arg);
+        if ((TREE_CODE(arg) == INTEGER_CST &&
+             check_magic_equal(arg, use->name)) ||
+            (TREE_CODE(arg) == NOP_EXPR &&
+             TREE_OPERAND(arg, 0) == get_ifsw_identifier(use->name))) {
+          DEBUGF("yup this is the constant we want\n");
+          rep = i;
+          TREE_OPERAND(t, i) =
+              build1(NOP_EXPR, integer_type_node, VAR_NAME_AS_TREE(use->name));
+          remove_subu_elem(ctx->mods, use);
+          use = NULL;
+          ctx->subcount += 1;
+          found += 1;
+          break;
+        } else if (EXPR_P(arg) && check_expr(&arg, ctx, loc, rng)) {
+          use = NULL;
+          found += 1;
+          rep = i;
+          break;
+        }
+      }
+      if (rep == -1) break;
+    }
+    /* TODO: did we substitute something we weren't
+     * supposed to substitute? check via hash-set? */
+  }
+  return found;
+}
+
 tree check_usage(tree *tp, int *check_subtree, void *data) {
   SubContext *ctx = (SubContext *)(data);
   tree t = *tp;
@@ -67,19 +173,22 @@ tree check_usage(tree *tp, int *check_subtree, void *data) {
       TREE_CODE(t) == USING_STMT || TREE_CODE(t) == CLEANUP_STMT ||
       TREE_CODE(t) == TRY_BLOCK || TREE_CODE(t) == HANDLER) {
     /* there's nothing to check in these statements, the walk will
-     * anyway go through their subtrees, which will have the
+     * anyway (UM....) go through their subtrees, which will have the
      * expressions we need to mod */
     return NULL_TREE;
   }
 
   if (TREE_CODE(t) == DECL_EXPR) {
-    DEBUGF("hi decl_expr for %s at (%u,%u)-(%u,%u)\n",
-           IDENTIFIER_NAME(DECL_EXPR_DECL(t)), LOCATION_LINE(rng.m_start),
+    DEBUGF("decl_expr at (%u,%u)-(%u,%u)\n", LOCATION_LINE(rng.m_start),
            LOCATION_COLUMN(rng.m_start), LOCATION_LINE(rng.m_finish),
            LOCATION_COLUMN(rng.m_finish));
+
+    auto code_type = TREE_CODE(TREE_TYPE(DECL_EXPR_DECL(t)));
+    if (POINTER_TYPE == code_type) {
+      return NULL_TREE;
+    }
     // debug_tree(DECL_EXPR_DECL(t));
-    if ((RECORD_TYPE == TREE_CODE(TREE_TYPE(DECL_EXPR_DECL(t))) ||
-         ARRAY_TYPE == TREE_CODE(TREE_TYPE(DECL_EXPR_DECL(t)))) &&
+    if ((RECORD_TYPE == code_type || ARRAY_TYPE == code_type) &&
         DECL_INITIAL(DECL_EXPR_DECL(t)) != NULL_TREE) {
       // debug_tree(DECL_INITIAL(DECL_EXPR_DECL(t)));
       ctx->prev = tp;
@@ -110,87 +219,7 @@ tree check_usage(tree *tp, int *check_subtree, void *data) {
        * or within the range rng */
       DEBUGF("found mark at %u,%u in a %s\n", LOCATION_LINE(loc),
              LOCATION_COLUMN(loc), get_tree_code_str(t));
-      if (TREE_CODE(t) == DECL_EXPR) {
-        if (build_modded_int_declaration(tp, ctx, use)) {
-          use = NULL;
-          ctx->initcount += 1;
-          DEBUGF("fixed\n");
-          ctx->prev = NULL;
-        }
-      } else if (TREE_CODE(t) == CALL_EXPR) {
-      check_call_args:
-        call_expr_arg_iterator it;
-        tree arg = NULL_TREE;
-        int i = 0;
-        int rep = -1;
-        FOR_EACH_CALL_EXPR_ARG(arg, it, t) {
-          DEBUGF("arg %d is %s\n", i, get_tree_code_str(arg));
-          // debug_tree(arg);
-          if ((TREE_CODE(arg) == INTEGER_CST &&
-               check_magic_equal(arg, use->name)) ||
-              (TREE_CODE(arg) == NOP_EXPR &&
-               TREE_OPERAND(arg, 0) == get_ifsw_identifier(use->name))) {
-            DEBUGF("yup this is the constant we want\n");
-            rep = i;
-            break;
-          }
-          i += 1;
-        }
-        if (rep != -1) {
-          CALL_EXPR_ARG(t, rep) =
-              build1(NOP_EXPR, integer_type_node, VAR_NAME_AS_TREE(use->name));
-          // debug_tree(t);
-          remove_subu_elem(ctx->mods, use);
-          use = NULL;
-          ctx->subcount += 1;
-          if (get_subu_elem(ctx->mods, loc, &use) ||
-              get_subu_elem2(ctx->mods, rng, &use)) {
-            /* there is another argument of this call
-             * that also had one of our macro expansions */
-            goto check_call_args;
-          }
-        }
-        /* TODO: did we substitute something we weren't
-         * supposed to substitute? check via hash-set? */
-      } else {
-      check_expr_args:
-        DEBUGF("this contains a substitution and it is... a %s?\n",
-               get_tree_code_str(t));
-        DEBUGF("how many operands do you have? %d\n", TREE_OPERAND_LENGTH(t));
-        tree arg = NULL_TREE;
-        int i = 0;
-        int n = TREE_OPERAND_LENGTH(t);
-        int rep = -1;
-        for (i = 0; i < n; ++i) {
-          arg = TREE_OPERAND(t, i);
-          DEBUGF("arg %d is %s\n", i, get_tree_code_str(arg));
-          // debug_tree(arg);
-          if ((TREE_CODE(arg) == INTEGER_CST &&
-               check_magic_equal(arg, use->name)) ||
-              (TREE_CODE(arg) == NOP_EXPR &&
-               TREE_OPERAND(arg, 0) == get_ifsw_identifier(use->name))) {
-            DEBUGF("yup this is the constant we want\n");
-            rep = i;
-            break;
-          }
-        }
-        if (rep != -1 && TREE_CODE(t) != CASE_LABEL_EXPR) {
-          TREE_OPERAND(t, rep) =
-              build1(NOP_EXPR, integer_type_node, VAR_NAME_AS_TREE(use->name));
-          // debug_tree(t);
-          remove_subu_elem(ctx->mods, use);
-          use = NULL;
-          ctx->subcount += 1;
-          if (get_subu_elem(ctx->mods, loc, &use) ||
-              get_subu_elem2(ctx->mods, rng, &use)) {
-            /* there is another argument of this expression
-             * that also had one of our macro expansions */
-            goto check_expr_args;
-          }
-        }
-        /* TODO: did we substitute something we weren't
-         * supposed to substitute? check via hash-set? */
-      }
+      check_expr(tp, ctx, loc, rng);
       return NULL_TREE;
     }
     DEBUGF("got in but no use %s at %u-%u\n", get_tree_code_str(t),
@@ -208,7 +237,7 @@ void handle_pre_genericize(void *gcc_data, void *user_data) {
   if (ctx->active && TREE_CODE(t) == FUNCTION_DECL && DECL_INITIAL(t) != NULL &&
       TREE_STATIC(t)) {
     if (ctx->mods->count == 0) {
-      DEBUGF("no substitutions were made in %s\n", IDENTIFIER_NAME(t));
+      // DEBUGF("no substitutions were made in %s\n", IDENTIFIER_NAME(t));
       return;
     }
     /* this function is defined within the file I'm processing */
