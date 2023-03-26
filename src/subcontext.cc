@@ -225,10 +225,16 @@ void cleanup_context(SubContext *ctx) {
     ctx->mods = NULL;
   }
   ctx->prev = NULL;
-  inform(UNKNOWN_LOCATION, "rewrote %u switch statements", ctx->switchcount);
+  if (ctx->switchcount > 0) {
+    inform(UNKNOWN_LOCATION, "rewrote %u switch statements", ctx->switchcount);
+  }
   ctx->switchcount = 0;
-  inform(UNKNOWN_LOCATION, "modified %u initializations", ctx->initcount);
+  if (ctx->initcount > 0) {
+    inform(UNKNOWN_LOCATION, "modified %u initializations", ctx->initcount);
+  }
   ctx->initcount = 0;
-  inform(UNKNOWN_LOCATION, "modified %u other macro uses", ctx->subcount);
+  if (ctx->subcount > 0) {
+    inform(UNKNOWN_LOCATION, "modified %u other macro uses", ctx->subcount);
+  }
   ctx->subcount = 0;
 }

@@ -13,7 +13,7 @@ PLUGIN_OBJS = $(PLUGIN_SOURCES:%.cc=%.o)
 PLUGIN_SONAME = ./portcosmo.so
 
 EXAMPLE_FLAGS = -I./examples -O2
-EXAMPLE_MODFLAGS = $(EXAMPLE_FLAGS) -fplugin=$(PLUGIN_SONAME) -include examples/tmpconst.h
+EXAMPLE_MODFLAGS = $(EXAMPLE_FLAGS) -fplugin=$(PLUGIN_SONAME) -include examples/tmpconst.h -include ./tmpconst.h
 EXAMPLE_BINS = ./examples/ex1_result ./examples/ex1_modded
 
 all: $(EXAMPLE_BINS)
