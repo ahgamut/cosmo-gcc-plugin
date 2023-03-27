@@ -22,6 +22,16 @@ See the [Counterexamples](#Counterexamples) section for more details.
    `-O2 -fplugin=/location/of/portcosmo.so -include /location/of/tmpconst.h`)
     and use that as `CC` when building software.
 
+As for now you will need to use [this
+branch](https://github.com/ahgamut/cosmopolitan/tree/symbolic-macro) where I've
+been trying to ensure I change as little of Cosmopolitan Libc as possible in
+order to make this work.
+
+And it does work! [This
+branch](https://github.com/ahgamut/cpython/tree/py311-custom) of CPython
+3.11.0rc1 builds with Cosmopolitan Libc, and I don't had to modify any `switch`
+statements.
+
 ## How does it work?
 
 Cosmopolitan Libc contains system-level constants (for example, errno constants
