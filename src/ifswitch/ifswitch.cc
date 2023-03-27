@@ -19,13 +19,17 @@
 #include <ifswitch/ifswitch.h>
 
 source_range get_switch_bounds(tree sws) {
-  auto rng1 =
-      EXPR_LOCATION_RANGE(STATEMENT_LIST_HEAD(SWITCH_STMT_BODY(sws))->stmt);
-  auto rng2 =
-      EXPR_LOCATION_RANGE(STATEMENT_LIST_TAIL(SWITCH_STMT_BODY(sws))->stmt);
+  auto body = SWITCH_STMT_BODY(sws);
   source_range rng;
-  rng.m_start = rng1.m_start;
-  rng.m_finish = rng2.m_finish;
+  rng.m_start = MAX_LOCATION_T;
+  rng.m_finish = MAX_LOCATION_T;
+  if (STATEMENT_LIST_HEAD(body) && STATEMENT_LIST_TAIL(body)) {
+    /* otherwise this is an empty switch statement */
+    auto rng1 = EXPR_LOCATION_RANGE(STATEMENT_LIST_HEAD(body)->stmt);
+    auto rng2 = EXPR_LOCATION_RANGE(STATEMENT_LIST_TAIL(body)->stmt);
+    rng.m_start = rng1.m_start;
+    rng.m_finish = rng2.m_finish;
+  }
   return rng;
 }
 

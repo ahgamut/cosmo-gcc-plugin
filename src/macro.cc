@@ -27,13 +27,13 @@ void check_macro_use(cpp_reader *reader, location_t loc, cpp_hashnode *node) {
   const char *defn = (const char *)cpp_macro_definition(reader, node);
   /* the definitions I am looking for are EXACTLY of the form
    *
-   * #define X SYMBOLIC(X)
+   * #define X ACTUALLY(X)
    *          ^^^^^^^^^^    ----> (test for this)
    * So the left-hand side of the macro (ie before the space)
    * should be the same as the argument inside the macro
    * (ie within the parentheses), otherwise this substitution
    * is most likely not worth recording, or an error. */
-  if (defn && strstr(defn, " SYMBOLIC(") && !strstr(defn, "__tmpcosmo_")) {
+  if (defn && strstr(defn, " ACTUALLY(") && !strstr(defn, "__tmpcosmo_")) {
     DEBUGF("at %u,%u checking macro.. %s\n", LOCATION_LINE(loc),
            LOCATION_COLUMN(loc), defn);
     const char *arg_start = strstr(defn, "(");
@@ -57,13 +57,13 @@ void check_macro_use(cpp_reader *reader, location_t loc, cpp_hashnode *node) {
 void check_macro_define(cpp_reader *reader, location_t loc,
                         cpp_hashnode *node) {
   const char *defn = (const char *)cpp_macro_definition(reader, node);
-  if (plugin_context.active == 0 && strstr(defn, " SYMBOLIC(")) {
+  if (plugin_context.active == 0 && strstr(defn, " ACTUALLY(")) {
     plugin_context.active = 1;
     cpp_callbacks *cbs = cpp_get_callbacks(reader);
     if (cbs && cbs->used == NULL) {
       cbs->used = check_macro_use;
     }
-    inform(loc, "recording usage of SYMBOLIC() macro...\n");
+    inform(loc, "recording usage of ACTUALLY() macro...\n");
   }
   /* TODO: at this point in execution, is it possible to
    *
@@ -84,8 +84,8 @@ void activate_macro_check(cpp_reader *reader = NULL) {
     inform(UNKNOWN_LOCATION, "plugin does not activate for ASM\n");
     return;
   }
-  cpp_undef(reader, "SYMBOLIC");
-  cpp_define_formatted(reader, "SYMBOLIC(X) = __tmpcosmo_ ## X");
+  cpp_undef(reader, "ACTUALLY");
+  cpp_define_formatted(reader, "ACTUALLY(X) = __tmpcosmo_ ## X");
   if (cbs && cbs->define == NULL) {
     cbs->define = check_macro_define;
   }
@@ -103,8 +103,8 @@ void deactivate_macro_check(cpp_reader *reader = NULL) {
     cbs->used = NULL;
   }
   plugin_context.active = 0;
-  cpp_undef(reader, "SYMBOLIC");
-  cpp_define_formatted(reader, "SYMBOLIC(X) = X");
+  cpp_undef(reader, "ACTUALLY");
+  cpp_define_formatted(reader, "ACTUALLY(X) = X");
 }
 
 void handle_start_tu(void *gcc_data, void *user_data) {

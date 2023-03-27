@@ -143,12 +143,18 @@ tree check_usage(tree *tp, int *check_subtree, void *data) {
       (LOCATION_BEFORE2(ctx->mods->start, loc) ||
        LOCATION_BEFORE2(ctx->mods->start, rng.m_start))) {
     // debug_tree(t);
-    DEBUGF("did we miss a decl?\n");
-    if (loc != rng.m_start) loc = rng.m_start;
+    DEBUGF("did we miss a decl? %u-%u, %u-%u\n", LOCATION_LINE(loc),
+           LOCATION_COLUMN(loc), LOCATION_LINE(rng.m_start),
+           LOCATION_COLUMN(rng.m_start));
+    if (LOCATION_AFTER2(loc, rng.m_start)) loc = rng.m_start;
+    auto z = ctx->initcount;
     build_modded_declaration(ctx->prev, ctx, loc);
-    ctx->prev = NULL;
-    check_context_clear(ctx, loc);
+    if (z != ctx->initcount) {
+      ctx->prev = NULL;
+      check_context_clear(ctx, loc);
+    }
   }
+  ctx->prev == NULL;
 
   if (TREE_CODE(t) == SWITCH_STMT) {
     rng = get_switch_bounds(t);
@@ -205,7 +211,10 @@ tree check_usage(tree *tp, int *check_subtree, void *data) {
        * of the variable and the actual value.
        * we'll check again before the next
        * element in the AST, just in case */
-      DEBUGF("just in case\n");
+      DEBUGF("just in case %u-%u, %u-%u\n", LOCATION_LINE(ctx->mods->start),
+             LOCATION_COLUMN(ctx->mods->start), LOCATION_LINE(ctx->mods->end),
+             LOCATION_COLUMN(ctx->mods->end));
+      // debug_tree(t);
       ctx->prev = tp;
     }
   }
@@ -241,8 +250,9 @@ void handle_pre_genericize(void *gcc_data, void *user_data) {
       return;
     }
     /* this function is defined within the file I'm processing */
-    DEBUGF("pre-genericize calling %s\n", IDENTIFIER_NAME(t));
+    // DEBUGF("pre-genericize calling %s\n", IDENTIFIER_NAME(t));
     t2 = DECL_SAVED_TREE(t);
+    ctx->prev = NULL;
     walk_tree_without_duplicates(&t2, check_usage, ctx);
     /* now at this stage, all uses of our macros have been
      * fixed, INCLUDING case labels. Let's confirm that: */

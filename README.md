@@ -29,18 +29,18 @@ like `SIGABRT`) defined as follows:
 
 ```c
 extern const int SIGABRT;
-#define SIGABRT SYMBOLIC(SIGABRT)
+#define SIGABRT ACTUALLY(SIGABRT)
 ```
 
-This plugin activates upon finding a ` SYMBOLIC(` (note the space) within a
-defined macro, and (re-)defines `SYMBOLIC` as follows:
+This plugin activates upon finding a ` ACTUALLY(` (note the space) within a
+defined macro, and (re-)defines `ACTUALLY` as follows:
 
 ```c
-#define SYMBOLIC(X) __tmpcosmo_##X
+#define ACTUALLY(X) __tmpcosmo_##X
 ```
 
 and records the location in the source file every time a macro containing
-`SYMBOLIC(` is used. In `tmpconst.h`, there is a huge list of constants starting
+`ACTUALLY(` is used. In `tmpconst.h`, there is a huge list of constants starting
 with the `__tmpcosmo_` prefix.
 
 After every (valid) macro usage has been recorded, this plugin walks through the
@@ -54,7 +54,7 @@ does so via the below two components:
   their initialization would otherwise raise the `initializer element is not
   constant` error (can handle `static` and global variables).
 
-The plugin errors out if the `SYMBOLIC` macro was improperly used, or if it is
+The plugin errors out if the `ACTUALLY` macro was improperly used, or if it is
 unable to confirm all the macro usage records were substituted successfully. At
 the end of compilation, the plugin provides a note of how many substitutions
 were made when compiling the file.

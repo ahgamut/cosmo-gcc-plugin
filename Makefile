@@ -2,7 +2,13 @@ CC = gcc
 CXX = g++
 CXX_PLUGIN_DIR = $(shell $(CXX) -print-file-name=plugin)
 
-PLUGIN_FLAGS = -I./src -I$(CXX_PLUGIN_DIR)/include -O2 -fno-rtti -fPIC -Wno-write-strings
+ifeq ($(MODE),)
+	PLUGIN_FLAGS = -I./src -I$(CXX_PLUGIN_DIR)/include -O2 -fno-rtti -fPIC -Wno-write-strings -DNDEBUG
+endif
+ifeq ($(MODE),dbg)
+	PLUGIN_FLAGS = -I./src -I$(CXX_PLUGIN_DIR)/include -O2 -fno-rtti -fPIC -Wno-write-strings
+endif
+
 PLUGIN_SOURCES = $(wildcard src/*.cc) \
 				 $(wildcard src/ifswitch/*.cc) \
 				 $(wildcard src/initstruct/*.cc)

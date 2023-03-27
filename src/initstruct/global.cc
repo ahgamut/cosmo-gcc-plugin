@@ -163,7 +163,7 @@ void handle_decl(void *gcc_data, void *user_data) {
     int internal_use =
         !strncmp(IDENTIFIER_NAME(t), "__tmpcosmo_", strlen("__tmpcosmo_"));
     if (internal_use || DECL_EXTERNAL(t)) {
-      error_at(input_location, "the SYMBOLIC is before the declaration!\n");
+      error_at(input_location, "the ACTUALLY is before the declaration!\n");
       ctx->active = 0;
       return;
     }

@@ -7,16 +7,16 @@ extern void something_2();
 extern void something_3();
 extern const int abcd;
 
-#ifndef SYMBOLIC
-#define SYMBOLIC(X) X
+#ifndef ACTUALLY
+#define ACTUALLY(X) X
 #endif
 
 #define HAVE_TWO 1
 #if HAVE_TWO
 extern const int TWO;
 extern const int THREE;
-#define TWO   SYMBOLIC(TWO)
-#define THREE SYMBOLIC(THREE)
+#define TWO   ACTUALLY(TWO)
+#define THREE ACTUALLY(THREE)
 #endif
 
 #define LOLMAX(X) case X:
