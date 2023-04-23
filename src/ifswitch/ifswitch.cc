@@ -167,10 +167,16 @@ tree build_modded_switch_stmt(tree swexpr, SubContext *ctx) {
       COND_EXPR_ELSE(res) = (*ifs)[zz];
       res = (*ifs)[zz];
     }
-    COND_EXPR_ELSE(res) =
-        build1(GOTO_EXPR, void_type_node, LABEL_EXPR_LABEL(default_label));
+    /* if we have a valid default for the switch,
+     * it should be the final else branch */
+    if (default_label && default_label != NULL_TREE) {
+      COND_EXPR_ELSE(res) =
+          build1(GOTO_EXPR, void_type_node, LABEL_EXPR_LABEL(default_label));
+    }
+    /* reset to the start of the if-else tree */
     res = (*ifs)[0];
   } else if (has_default && default_label != NULL_TREE) {
+    /* this switch has only a default? ok... */
     res = build1(GOTO_EXPR, void_type_node, LABEL_EXPR_LABEL(default_label));
   } else {
     /* this switch has no cases, and no default?! */
