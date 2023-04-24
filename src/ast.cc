@@ -18,9 +18,69 @@
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include <portcosmo.h>
 
+int arg_should_be_modded(tree arg, subu_node *use, tree *rep_ptr) {
+  /* if we are returning 1, rep_ptr has been set.
+   * if we are returning 0, rep_ptr is unchanged.
+   * use is not affected! */
+  if (TREE_CODE(arg) == INTEGER_CST) {
+    tree vx = get_ifsw_identifier(use->name);
+    if (tree_int_cst_equal(arg, DECL_INITIAL(vx))) {
+      /* if this is an integer constant, AND its
+       * value is equal to the macro we substituted,
+       * then we replace the correct variable here */
+      *rep_ptr =
+          build1(NOP_EXPR, integer_type_node, VAR_NAME_AS_TREE(use->name));
+      return 1;
+    }
+    /* here you might want to handle some
+     * minimal constant folding algebra,
+     * like -VAR or ~VAR */
+    if (tree_fits_poly_int64_p(DECL_INITIAL(vx)) &&
+        tree_fits_poly_int64_p(arg)) {
+      /* TODO (ahgamut): can we get away with just using int?
+       * are all our system constants 32-bit? */
+      auto v1 = tree_to_poly_int64(DECL_INITIAL(vx));
+      auto v2 = tree_to_poly_int64(arg);
+
+      /* handle the -VAR case */
+      if ((tree_int_cst_sgn(arg) * tree_int_cst_sgn(DECL_INITIAL(vx)) == -1) &&
+          known_eq(v1, -v2)) {
+        inform(use->loc, "a unary minus here was constant-folded\n");
+        *rep_ptr =
+            build1(NEGATE_EXPR, integer_type_node, VAR_NAME_AS_TREE(use->name));
+        return 1;
+      }
+      /* TODO (ahgamut): handle the ~VAR case? */
+    }
+    return 0;
+  } else if (TREE_CODE(arg) == NOP_EXPR &&
+             TREE_OPERAND(arg, 0) == get_ifsw_identifier(use->name)) {
+    /* we have a situation where the compiler did not fold
+     * the constant, ie the AST has something like
+     *
+     * foo(x, __tmpcosmo_VAR);
+     *
+     * instead of
+     *
+     * foo(x, <an integer value>);
+     *
+     * in that case, this check should activate, as
+     * get_ifsw_identifier will return __tmpcosmo_VAR,
+     * and we return the modification necessary, ie:
+     *
+     * foo(x, VAR);
+     * */
+    *rep_ptr = build1(NOP_EXPR, integer_type_node, VAR_NAME_AS_TREE(use->name));
+    return 1;
+  }
+
+  return 0;
+}
+
 int check_expr(tree *tp, SubContext *ctx, location_t loc, source_range rng) {
   tree t = *tp;
   subu_node *use = NULL;
+  tree replacement = NULL_TREE;
   int found = 0;
   if (TREE_CODE(t) == DECL_EXPR) {
     get_subu_elem(ctx->mods, loc, &use) || get_subu_elem2(ctx->mods, rng, &use);
@@ -55,18 +115,15 @@ int check_expr(tree *tp, SubContext *ctx, location_t loc, source_range rng) {
       FOR_EACH_CALL_EXPR_ARG(arg, it, t) {
         DEBUGF("arg %d is %s (%s)\n", i, get_tree_code_str(arg), use->name);
         // debug_tree(arg);
-        if ((TREE_CODE(arg) == INTEGER_CST &&
-             check_magic_equal(arg, use->name)) ||
-            (TREE_CODE(arg) == NOP_EXPR &&
-             TREE_OPERAND(arg, 0) == get_ifsw_identifier(use->name))) {
+        if (arg_should_be_modded(arg, use, &replacement)) {
           DEBUGF("yup this is the constant we want\n");
-          CALL_EXPR_ARG(t, i) =
-              build1(NOP_EXPR, integer_type_node, VAR_NAME_AS_TREE(use->name));
+          CALL_EXPR_ARG(t, i) = replacement;
           remove_subu_elem(ctx->mods, use);
           use = NULL;
           ctx->subcount += 1;
           rep = i;
           found += 1;
+          replacement = NULL_TREE;
           break;
         } else if (EXPR_P(arg) && check_expr(&arg, ctx, loc, rng)) {
           use = NULL;
@@ -96,18 +153,15 @@ int check_expr(tree *tp, SubContext *ctx, location_t loc, source_range rng) {
         if (!arg || arg == NULL_TREE) continue;
         DEBUGF("arg %d is %s (%s)\n", i, get_tree_code_str(arg), use->name);
         // debug_tree(arg);
-        if ((TREE_CODE(arg) == INTEGER_CST &&
-             check_magic_equal(arg, use->name)) ||
-            (TREE_CODE(arg) == NOP_EXPR &&
-             TREE_OPERAND(arg, 0) == get_ifsw_identifier(use->name))) {
+        if (arg_should_be_modded(arg, use, &replacement)) {
           DEBUGF("yup this is the constant we want\n");
           rep = i;
-          TREE_OPERAND(t, i) =
-              build1(NOP_EXPR, integer_type_node, VAR_NAME_AS_TREE(use->name));
+          TREE_OPERAND(t, i) = replacement;
           remove_subu_elem(ctx->mods, use);
           use = NULL;
           ctx->subcount += 1;
           found += 1;
+          replacement = NULL_TREE;
           break;
         } else if (EXPR_P(arg) && check_expr(&arg, ctx, loc, rng)) {
           use = NULL;
@@ -245,12 +299,11 @@ void handle_pre_genericize(void *gcc_data, void *user_data) {
   tree t2;
   if (ctx->active && TREE_CODE(t) == FUNCTION_DECL && DECL_INITIAL(t) != NULL &&
       TREE_STATIC(t)) {
+    /* this function is defined within the file I'm processing */
     if (ctx->mods->count == 0) {
       // DEBUGF("no substitutions were made in %s\n", IDENTIFIER_NAME(t));
       return;
     }
-    /* this function is defined within the file I'm processing */
-    // DEBUGF("pre-genericize calling %s\n", IDENTIFIER_NAME(t));
     t2 = DECL_SAVED_TREE(t);
     ctx->prev = NULL;
     walk_tree_without_duplicates(&t2, check_usage, ctx);
