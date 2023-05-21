@@ -30,6 +30,7 @@ int arg_should_be_modded(tree arg, const subu_node *use, tree *rep_ptr) {
        * then we replace the correct variable here */
       *rep_ptr =
           build1(NOP_EXPR, integer_type_node, VAR_NAME_AS_TREE(use->name));
+      inform(use->loc, "replaced an integer here with %s\n", use->name);
       return 1;
     }
     /* here you might want to handle some
@@ -41,7 +42,7 @@ int arg_should_be_modded(tree arg, const subu_node *use, tree *rep_ptr) {
 
       /* handle the -VAR case */
       if (known_eq(v1, -v2)) {
-        inform(use->loc, "a unary minus here was constant-folded\n");
+        inform(use->loc, "replaced an integer here with -%s\n", use->name);
         *rep_ptr =
             build1(NEGATE_EXPR, integer_type_node, VAR_NAME_AS_TREE(use->name));
         return 1;
@@ -49,7 +50,7 @@ int arg_should_be_modded(tree arg, const subu_node *use, tree *rep_ptr) {
 
       /* handle the ~VAR case */
       if (known_eq(v1, ~v2)) {
-        inform(use->loc, "a unary ~ here was constant-folded\n");
+        inform(use->loc, "replaced an integer here with ~%s\n", use->name);
         *rep_ptr = build1(BIT_NOT_EXPR, integer_type_node,
                           VAR_NAME_AS_TREE(use->name));
         return 1;
