@@ -219,11 +219,24 @@ tree check_usage(tree *tp, int *check_subtree, void *data) {
        * of the variable and the actual value.
        * we'll check again before the next
        * element in the AST, just in case */
-      DEBUGF("just in case %u-%u, %u-%u\n", LOCATION_LINE(ctx->mods->start),
-             LOCATION_COLUMN(ctx->mods->start), LOCATION_LINE(ctx->mods->end),
-             LOCATION_COLUMN(ctx->mods->end));
+      auto vloc = DECL_SOURCE_LOCATION(DECL_EXPR_DECL(t));
       // debug_tree(t);
-      ctx->prev = tp;
+      if (DECL_INITIAL(DECL_EXPR_DECL(t)) != NULL_TREE &&
+          LOCATION_LINE(ctx->mods->start) - LOCATION_LINE(vloc) < 20) {
+        /* if you have a multi-line comment of more than 20 lines
+         * between a variable declaration and it's initial value,
+         * then the plugin will fail. This deterministic failure is
+         * better than crashing randomly because we tried to DECL_INITIAL
+         * some variable which had no macro substitutions near it.
+         *
+         * TODO: can we get better location handling for comments?
+         * that might help with initializers, although there is a
+         * nastier alternative. */
+        DEBUGF("just in case %u-%u, %u-%u\n", LOCATION_LINE(ctx->mods->start),
+               LOCATION_COLUMN(ctx->mods->start), LOCATION_LINE(ctx->mods->end),
+               LOCATION_COLUMN(ctx->mods->end));
+        ctx->prev = tp;
+      }
     }
   }
 
