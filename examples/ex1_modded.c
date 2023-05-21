@@ -75,9 +75,9 @@ int adder(int x, int y) {
 
 int dummy(int x) {
   if (x == 1) {
-    return 1;
+    return ~TWO;
   }
-  return TWO;
+  return -TWO;
 }
 
 void exam_func(int value) {
