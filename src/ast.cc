@@ -23,6 +23,7 @@ int check_expr(tree *tp, SubContext *ctx, location_t loc, source_range rng) {
   subu_node *use = NULL;
   tree replacement = NULL_TREE;
   int found = 0;
+
   if (TREE_CODE(t) == DECL_EXPR) {
     get_subu_elem(ctx->mods, loc, &use) || get_subu_elem2(ctx->mods, rng, &use);
     if (build_modded_int_declaration(tp, ctx, use)) {
@@ -125,8 +126,7 @@ tree check_usage(tree *tp, int *check_subtree, void *data) {
   tree z;
   subu_node *use = NULL;
   location_t loc = EXPR_LOCATION(t);
-  source_range rng;
-  rng = EXPR_LOCATION_RANGE(t);
+  source_range rng = EXPR_LOCATION_RANGE(t);
 
   if (ctx->active == 0 || ctx->mods->count == 0) {
     /* DEBUGF("substitutions complete\n"); */
@@ -134,22 +134,35 @@ tree check_usage(tree *tp, int *check_subtree, void *data) {
     return NULL_TREE;
   }
 
-  if (ctx->prev && TREE_CODE(*(ctx->prev)) == DECL_EXPR &&
-      (LOCATION_BEFORE2(ctx->mods->start, loc) ||
-       LOCATION_BEFORE2(ctx->mods->start, rng.m_start))) {
-    // debug_tree(t);
-    DEBUGF("did we miss a decl? %u-%u, %u-%u\n", LOCATION_LINE(loc),
-           LOCATION_COLUMN(loc), LOCATION_LINE(rng.m_start),
-           LOCATION_COLUMN(rng.m_start));
-    if (LOCATION_AFTER2(loc, rng.m_start)) loc = rng.m_start;
+  if (LOCATION_AFTER2(loc, rng.m_start)) {
+    loc = rng.m_start;
+  } else {
+    rng.m_start = loc;
+  }
+
+  if (ctx->prev && LOCATION_BEFORE2(ctx->mods->start, rng.m_start)) {
+    auto vloc = DECL_SOURCE_LOCATION(DECL_EXPR_DECL(*(ctx->prev)));
+    /* below inequality holds inside this if condition:
+     *    vloc <= ctx->mods->start <= rng.m_start
+     * this means that there was a macro substitution
+     * between vloc and rng.m_start, which was not
+     * eliminated when we went through the other parts
+     * of the parse tree earlier. thus, the decl_expr
+     * that we have stored in ctx->prev needs to be
+     * checked for possible macro substitutions */
+    DEBUGF("did we miss a decl? vloc=%u,%u, loc=%u,%u, rng.mstart=%u,%u, "
+           "start=%u,%u\n",
+           LOCATION_LINE(vloc), LOCATION_COLUMN(vloc),  //
+           LOCATION_LINE(loc), LOCATION_COLUMN(loc),    //
+           LOCATION_LINE(rng.m_start), LOCATION_COLUMN(rng.m_start),
+           LOCATION_LINE(ctx->mods->start), LOCATION_COLUMN(ctx->mods->start));
     auto z = ctx->initcount;
-    build_modded_declaration(ctx->prev, ctx, loc);
+    build_modded_declaration(ctx->prev, ctx, rng.m_start);
     if (z != ctx->initcount) {
       ctx->prev = NULL;
       check_context_clear(ctx, loc);
     }
   }
-  ctx->prev == NULL;
 
   if (TREE_CODE(t) == SWITCH_STMT) {
     rng = get_switch_bounds(t);

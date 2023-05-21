@@ -44,8 +44,10 @@ int check_magic_equal(tree, char *);
 
 #ifndef NDEBUG
 #define DEBUGF(...) fprintf(stderr, "<DEBUG> " __VA_ARGS__)
+#define INFORM(...) inform(__VA_ARGS__)
 #else
 #define DEBUGF(...)
+#define INFORM(...)
 #endif
 
 #define STRING_BUFFER_SIZE 192

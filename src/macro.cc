@@ -63,7 +63,7 @@ void check_macro_define(cpp_reader *reader, location_t loc,
     if (cbs && cbs->used == NULL) {
       cbs->used = check_macro_use;
     }
-    inform(loc, "recording usage of ACTUALLY() macro...\n");
+    INFORM(loc, "recording usage of ACTUALLY() macro...\n");
   }
   /* TODO: at this point in execution, is it possible to
    *

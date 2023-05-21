@@ -30,7 +30,9 @@ EXAMPLE_RESBINS = $(EXAMPLE_SOURCES:examples/%.c=examples/result_%)
 
 EXAMPLE_BINS = $(EXAMPLE_MODBINS) $(EXAMPLE_RESBINS)
 
-all: $(EXAMPLE_RUNS)
+all: $(EXAMPLE_RUNS) $(EXAMPLE_BINS)
+
+$(EXAMPLE_RUNS): $(EXAMPLE_BINS)
 
 ./examples/%.runs: ./examples/modded_% ./examples/result_%
 	diff -s <($(word 2,$^)) <($(word 1,$^))
