@@ -21,7 +21,7 @@
 void update_global_decls(tree dcl, SubContext *ctx) {
   tree body = alloc_stmt_list();
   subu_node *use = NULL;
-  char chk[128];
+  char chk[STRING_BUFFER_SIZE];
 
   /* dcl, the global declaration we have is like these:
    *

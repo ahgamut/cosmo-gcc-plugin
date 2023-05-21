@@ -24,7 +24,7 @@ static inline tree build_modded_if_stmt(tree condition, tree then_clause,
 }
 
 int build_modded_int_declaration(tree *dxpr, SubContext *ctx, subu_node *use) {
-  char chk[128];
+  char chk[STRING_BUFFER_SIZE];
   tree dcl = DECL_EXPR_DECL(*dxpr);
   tree replacement = NULL_TREE;
 
@@ -173,7 +173,7 @@ tree copy_struct_ctor(tree ctor) {
 }
 
 void build_modded_declaration(tree *dxpr, SubContext *ctx, location_t bound) {
-  char chk[128];
+  char chk[STRING_BUFFER_SIZE];
   tree dcl = DECL_EXPR_DECL(*dxpr);
   subu_node *use = NULL;
   subu_list *list = ctx->mods;

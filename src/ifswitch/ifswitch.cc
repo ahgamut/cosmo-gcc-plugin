@@ -60,7 +60,7 @@ unsigned int count_mods_in_switch(tree swexpr, subu_list *list) {
 
 tree build_modded_label(unsigned int swcount, const char *case_str,
                         location_t loc = UNKNOWN_LOCATION) {
-  char dest[128] = {0};
+  char dest[STRING_BUFFER_SIZE] = {0};
   snprintf(dest, sizeof(dest), "__tmpcosmo_%u_%s", swcount, case_str);
   tree lab = build_decl(loc, LABEL_DECL, get_identifier(dest), void_type_node);
   /* gcc's GIMPLE needs to know that this label
@@ -84,7 +84,7 @@ tree modded_case_label(tree t, unsigned int i, tree swcond, vec<tree> *&ifs,
   tree result;
   tree replacement = NULL_TREE;
   subu_node *use = NULL;
-  char case_str[128] = {0};
+  char case_str[STRING_BUFFER_SIZE] = {0};
 
   if (CASE_LOW(t) == NULL_TREE) {
     DEBUGF("default case\n");
@@ -136,7 +136,7 @@ tree build_modded_switch_stmt(tree swexpr, SubContext *ctx) {
   tree swcond = save_expr(SWITCH_STMT_COND(swexpr));
   tree swbody = SWITCH_STMT_BODY(swexpr);
   tree *tp = NULL;
-  char dest[128] = {0};
+  char dest[STRING_BUFFER_SIZE] = {0};
 
   vec<tree> *ifs;
   vec_alloc(ifs, 0);

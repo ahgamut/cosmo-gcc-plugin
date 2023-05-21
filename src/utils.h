@@ -48,4 +48,6 @@ int check_magic_equal(tree, char *);
 #define DEBUGF(...)
 #endif
 
+#define STRING_BUFFER_SIZE 192
+
 #endif /* PORTCOSMO_UTILS_H */
