@@ -141,8 +141,6 @@ tree build_modded_switch_stmt(tree swexpr, SubContext *ctx) {
   int case_count = 0, break_count = 0;
   int has_default = 0;
 
-  debug_tree(swexpr);
-
   tree swcond = save_expr(SWITCH_STMT_COND(swexpr));
   tree swbody = get_switch_body(swexpr);
   tree *tp = NULL;
