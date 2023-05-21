@@ -36,21 +36,21 @@ struct toyroom {
 };
 
 static int v1 = TWO;
-static int arr1[] = {TWO, THREE, THREE, TWO};
+static int arr1[] = {TWO, THREE, ~THREE, ~TWO};
 struct toy t0 = {.id = 30, .value = THREE};
 static struct toy t1 = {.id = 31, .value = TWO};
-static const struct toy ta[] = {{.id = 1, .value = TWO},
-                                {.id = THREE, .value = TWO},
-                                {.value = TWO, .id = THREE},
+static const struct toy ta[] = {{.id = 1, .value = ~TWO},
+                                {.id = ~THREE, .value = TWO},
+                                {.value = TWO, .id = -THREE},
                                 {.id = THREE, .value = 1},
                                 {.id = 7, .value = THREE}};
 static const struct toyroom r1 = {
     .id = 2,
-    .value = TWO,
+    .value = -TWO,
     .x1 = {.id = 1, .value = TWO},
-    .x2 = {.id = TWO, .value = 1},
-    .x3 = {.value = TWO, .id = THREE},
-    .x4 = {.id = THREE, .value = THREE},
+    .x2 = {.id = ~TWO, .value = 1},
+    .x3 = {.value = TWO, .id = -THREE},
+    .x4 = {.id = THREE, .value = ~THREE},
 };
 
 static __attribute__((constructor)) void myctor() {
@@ -129,7 +129,7 @@ void init_func() {
   static const struct toy t = {.id = 22,
                                /* OMG why do a comment here */
                                .value = TWO};
-  static int vals[] = {1, TWO, THREE, TWO, 1};
+  static int vals[] = {1, TWO, -THREE, ~TWO, 1};
 
   printf("bye t.id = %d, t.value = %d\n", t.id, t.value);
   for (int i = 0; i < 5; ++i) {
@@ -137,9 +137,9 @@ void init_func() {
   }
 
   struct toy box[] = {
-      {.id = 1, .value = 1},       {.id = THREE, .value = THREE},
-      {.id = THREE, .value = 1},   {.id = TWO, .value = TWO},
-      {.id = TWO, .value = THREE}, {.id = THREE, .value = TWO},
+      {.id = 1, .value = 1},       {.id = -THREE, .value = THREE},
+      {.id = THREE, .value = 1},   {.id = -TWO, .value = ~TWO},
+      {.id = TWO, .value = THREE}, {.id = ~THREE, .value = TWO},
   };
   for (int i = 0; i < 6; ++i) {
     printf("box[%d]: id=%d, value=%d\n", i, box[i].id, box[i].value);
@@ -149,9 +149,9 @@ void init_func() {
       .id = 2,
       .value = THREE,
       .x1 = {.id = 1, .value = TWO},
-      .x2 = {.id = TWO, .value = 1},
-      .x3 = {.id = TWO, .value = THREE},
-      .x4 = {.id = THREE, .value = THREE},
+      .x2 = {.id = ~TWO, .value = 1},
+      .x3 = {.id = TWO, .value = ~THREE},
+      .x4 = {.id = THREE, .value = -THREE},
   };
 
   for (int i = 0; i < TWO; i++) {
