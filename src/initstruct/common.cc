@@ -32,17 +32,19 @@ void set_values_based_on_ctor(tree ctor, subu_list *list, tree body, tree lhs,
   subu_node *use = NULL;
   unsigned int iprev = 0;
   bool started = true;
+  tree replacement = NULL_TREE;
+
   while (list->count > 0 && LOCATION_BEFORE2(list->start, bound)) {
     tree index = NULL_TREE;
     tree val = NULL_TREE;
     unsigned int i = 0;
-    bool found = false;
+    int found = 0;
     FOR_EACH_CONSTRUCTOR_ELT(CONSTRUCTOR_ELTS(ctor), i, index, val) {
       DEBUGF("value %u is %s\n", i, get_tree_code_str(val));
       if (!started && i <= iprev) continue;
       if (TREE_CODE(val) == INTEGER_CST) {
         for (use = list->head; use; use = use->next) {
-          found = check_magic_equal(val, use->name);
+          found = arg_should_be_modded(val, use, &replacement);
           if (found) break;
         }
         if (found) {
@@ -61,10 +63,11 @@ void set_values_based_on_ctor(tree ctor, subu_list *list, tree body, tree lhs,
     }
     if (found) {
       auto modexpr = build2(MODIFY_EXPR, TREE_TYPE(index),
-                            access_at(lhs, index), VAR_NAME_AS_TREE(use->name));
+                            access_at(lhs, index), replacement);
       // debug_tree(modexpr);
       append_to_statement_list(modexpr, &body);
       remove_subu_elem(list, use);
+      replacement = NULL_TREE;
       DEBUGF("found; %d left\n", list->count);
     } else {
       /* we did not find any (more) substitutions to fix */

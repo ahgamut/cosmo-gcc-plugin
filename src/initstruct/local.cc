@@ -26,9 +26,10 @@ static inline tree build_modded_if_stmt(tree condition, tree then_clause,
 int build_modded_int_declaration(tree *dxpr, SubContext *ctx, subu_node *use) {
   char chk[128];
   tree dcl = DECL_EXPR_DECL(*dxpr);
+  tree replacement = NULL_TREE;
 
   if (INTEGRAL_TYPE_P(TREE_TYPE(dcl)) &&
-      check_magic_equal(DECL_INITIAL(dcl), use->name)) {
+      arg_should_be_modded(DECL_INITIAL(dcl), use, &replacement)) {
     if (TREE_READONLY(dcl)) {
       error_at(EXPR_LOCATION(dcl), "cannot substitute this constant\n");
       /* actually I can, but the issue is if one of gcc's optimizations
@@ -39,8 +40,9 @@ int build_modded_int_declaration(tree *dxpr, SubContext *ctx, subu_node *use) {
     }
 
     if (!TREE_STATIC(dcl)) {
-      DECL_INITIAL(dcl) = VAR_NAME_AS_TREE(use->name);
+      DECL_INITIAL(dcl) = replacement;
       remove_subu_elem(ctx->mods, use);
+      replacement = NULL_TREE;
       return 1;
     }
 
@@ -81,7 +83,7 @@ int build_modded_int_declaration(tree *dxpr, SubContext *ctx, subu_node *use) {
                                     build_int_cst(uint8_type_node, 1)),
                              &then_clause);
     append_to_statement_list(
-        build2(MODIFY_EXPR, void_type_node, dcl, VAR_NAME_AS_TREE(use->name)),
+        build2(MODIFY_EXPR, void_type_node, dcl, replacement),
         &then_clause);
     /*
     append_to_statement_list(
@@ -103,6 +105,7 @@ int build_modded_int_declaration(tree *dxpr, SubContext *ctx, subu_node *use) {
     *dxpr = res;
     // debug_tree(res);
     remove_subu_elem(ctx->mods, use);
+    replacement = NULL_TREE;
     return 1;
   }
   return 0;
@@ -112,16 +115,18 @@ void modify_local_struct_ctor(tree ctor, subu_list *list, location_t bound) {
   subu_node *use = NULL;
   unsigned int iprev = 0;
   bool started = true;
+  tree replacement = NULL_TREE;
+  
   while (list->count > 0 && LOCATION_BEFORE2(list->start, bound)) {
     tree val = NULL_TREE;
     unsigned int i = 0;
-    bool found = false;
+    int found = 0;
     FOR_EACH_CONSTRUCTOR_VALUE(CONSTRUCTOR_ELTS(ctor), i, val) {
       DEBUGF("value %u is %s\n", i, get_tree_code_str(val));
       // debug_tree(val);
       if (TREE_CODE(val) == INTEGER_CST) {
         for (use = list->head; use; use = use->next) {
-          found = check_magic_equal(val, use->name);
+          found = arg_should_be_modded(val, use, &replacement);
           if (found) break;
         }
         if (found) {
@@ -138,9 +143,10 @@ void modify_local_struct_ctor(tree ctor, subu_list *list, location_t bound) {
     if (found) {
       DEBUGF("found\n");
       // debug_tree(CONSTRUCTOR_ELT(ctor, i)->index);
-      CONSTRUCTOR_ELT(ctor, i)->value = VAR_NAME_AS_TREE(use->name);
+      CONSTRUCTOR_ELT(ctor, i)->value = replacement;
       // debug_tree(CONSTRUCTOR_ELT(ctor, i)->value);
       remove_subu_elem(list, use);
+      replacement = NULL_TREE;
     } else {
       /* we did not find any (more) substitutions to fix */
       break;
