@@ -18,8 +18,16 @@
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include <ifswitch/ifswitch.h>
 
+static tree get_switch_body(tree swexpr) {
+  auto body = SWITCH_STMT_BODY(swexpr);
+  if (TREE_CODE(body) == BIND_EXPR) {
+    body = BIND_EXPR_BODY(body);
+  }
+  return body;
+}
+
 source_range get_switch_bounds(tree sws) {
-  auto body = SWITCH_STMT_BODY(sws);
+  auto body = get_switch_body(sws);
   source_range rng;
   rng.m_start = MAX_LOCATION_T;
   rng.m_finish = MAX_LOCATION_T;
@@ -34,7 +42,7 @@ source_range get_switch_bounds(tree sws) {
 }
 
 unsigned int count_mods_in_switch(tree swexpr, subu_list *list) {
-  tree body = SWITCH_STMT_BODY(swexpr);
+  tree body = get_switch_body(swexpr);
   tree t = NULL_TREE;
   tree replacement = NULL_TREE;
   subu_node *use = NULL;
@@ -133,8 +141,10 @@ tree build_modded_switch_stmt(tree swexpr, SubContext *ctx) {
   int case_count = 0, break_count = 0;
   int has_default = 0;
 
+  debug_tree(swexpr);
+
   tree swcond = save_expr(SWITCH_STMT_COND(swexpr));
-  tree swbody = SWITCH_STMT_BODY(swexpr);
+  tree swbody = get_switch_body(swexpr);
   tree *tp = NULL;
   char dest[STRING_BUFFER_SIZE] = {0};
 
@@ -156,6 +166,17 @@ tree build_modded_switch_stmt(tree swexpr, SubContext *ctx) {
       break_count += 1;
       /* replace the break statement with a goto to the end */
       *tp = build1(GOTO_EXPR, void_type_node, LABEL_EXPR_LABEL(exit_label));
+    } else if (TREE_CODE(*tp) == BIND_EXPR) {
+      for (auto it2 = tsi_start(BIND_EXPR_BODY(*tp)); !tsi_end_p(it2);
+           tsi_next(&it2)) {
+        auto tp2 = tsi_stmt_ptr(it2);
+        if (TREE_CODE(*tp2) == BREAK_STMT) {
+          break_count += 1;
+          /* replace the break statement with a goto to the end */
+          *tp2 =
+              build1(GOTO_EXPR, void_type_node, LABEL_EXPR_LABEL(exit_label));
+        }
+      }
     }
   }
   /* add all the if statements to the start of the switch body */
@@ -203,5 +224,9 @@ tree build_modded_switch_stmt(tree swexpr, SubContext *ctx) {
                            &swbody); */
 
   /* debug_tree(swbody); */
-  return swbody;
+  /* we are returning SWITCH_STMT_BODY(swexpr),
+   * instead of just swbody, because sometimes,
+   * SWITCH_STMT_BODY(swexpr) may be a BIND_EXPR
+   * that has some scoping-related information. */
+  return SWITCH_STMT_BODY(swexpr);
 }

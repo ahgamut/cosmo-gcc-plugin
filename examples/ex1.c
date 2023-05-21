@@ -9,6 +9,7 @@ void exam_func(int value) {
   switch (value) {
     case 1: {
       // might create a variable in this scope
+      int a = 21;
       something_1();
       printf("you got a 1\n");
       break;
@@ -21,16 +22,19 @@ void exam_func(int value) {
       // fall-through
 #endif
 
-    case THREE:
+    case THREE: {
+      int c = 22;
       something_3();
       printf("you got a 3\n");
       break;
+    }
 
     case -THREE:
       printf("you got a -3\n");
       break;
 
     case ~TWO:
+      int d = 111;
       printf("you got a ~2\n");
       break;
 
@@ -44,7 +48,9 @@ void exam_func(int value) {
       // fall-through
 
     default:
+      int z = 12;
       printf("default you got a %d\n", value);
+      break;
   }
   printf("DONE WITH SWITCH\n");
   printf("----------------\n");
