@@ -19,25 +19,35 @@ PLUGIN_OBJS = $(PLUGIN_SOURCES:%.cc=%.o)
 PLUGIN_SONAME = ./portcosmo.so
 
 EXAMPLE_FLAGS = -I./examples -O2
-EXAMPLE_MODFLAGS = $(EXAMPLE_FLAGS) -fplugin=$(PLUGIN_SONAME) -include examples/tmpconst.h -include ./tmpconst.h
-EXAMPLE_BINS = ./examples/ex1_result ./examples/ex1_modded
+EXAMPLE_MODFLAGS = $(EXAMPLE_FLAGS) -fplugin=$(PLUGIN_SONAME) -DUSING_PLUGIN=1\
+				   -include examples/tmpconst.h -include ./tmpconst.h
+EXAMPLE_RESFLAGS = $(EXAMPLE_FLAGS) -include examples/tmpconst.h -include ./tmpconst.h
 
-all: $(EXAMPLE_BINS)
+EXAMPLE_SOURCES = $(wildcard examples/ex*.c)
+EXAMPLE_RUNS = $(EXAMPLE_SOURCES:%.c=%.runs)
+EXAMPLE_MODBINS = $(EXAMPLE_SOURCES:examples/%.c=examples/modded_%)
+EXAMPLE_RESBINS = $(EXAMPLE_SOURCES:examples/%.c=examples/result_%)
 
-test: $(EXAMPLE_BINS)
-	./examples/ex1_result
-	./examples/ex1_modded
+EXAMPLE_BINS = $(EXAMPLE_MODBINS) $(EXAMPLE_RESBINS)
+
+all: $(EXAMPLE_RUNS)
+
+./examples/%.runs: ./examples/modded_% ./examples/result_%
+	diff -s <($(word 2,$^)) <($(word 1,$^))
 
 ./examples/%.o: ./examples/%.c ./examples/tmpconst.h
 	$(CC) $(EXAMPLE_FLAGS) $< -c -o $@
 
-./examples/ex1_modded.o: ./examples/ex1_modded.c $(PLUGIN_SONAME)
+./examples/modded_%.o: ./examples/%.c $(PLUGIN_SONAME)
 	$(CC) $(EXAMPLE_MODFLAGS) $< -c -o $@
 
-./examples/ex1_modded: ./examples/ex1_modded.o ./examples/functions.o ./examples/supp.o
+./examples/modded_%: ./examples/modded_%.o ./examples/functions.o ./examples/supp.o
 	$(CC) $^ -o $@
 
-./examples/ex1_result: ./examples/ex1_result.o ./examples/supp.o ./examples/functions.o
+./examples/result_%.o: ./examples/%.c $(PLUGIN_SONAME)
+	$(CC) $(EXAMPLE_RESFLAGS) $< -c -o $@
+
+./examples/result_%: ./examples/result_%.o ./examples/functions.o
 	$(CC) $^ -o $@
 
 $(PLUGIN_SONAME): $(PLUGIN_OBJS)
@@ -49,5 +59,6 @@ $(PLUGIN_SONAME): $(PLUGIN_OBJS)
 clean:
 	rm -f ./examples/*.o
 	rm -f $(EXAMPLE_BINS)
+	rm -f $(EXAMPLE_RUNS)
 	rm -f ./src/*.o ./src/ifswitch/*.o ./src/initstruct/*.o
 	rm -f $(PLUGIN_SONAME)

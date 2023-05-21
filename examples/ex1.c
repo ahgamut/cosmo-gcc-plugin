@@ -1,24 +1,6 @@
 #include <stdio.h>
 #include <string.h>
 
-extern void something_0();
-extern void something_1();
-extern void something_2();
-extern void something_3();
-extern const int abcd;
-
-#ifndef ACTUALLY
-#define ACTUALLY(X) X
-#endif
-
-#define HAVE_TWO 1
-#if HAVE_TWO
-extern const int TWO;
-extern const int THREE;
-#define TWO   ACTUALLY(TWO)
-#define THREE ACTUALLY(THREE)
-#endif
-
 #define LOLMAX(X) case X:
 
 struct toy {
