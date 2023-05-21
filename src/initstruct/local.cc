@@ -204,9 +204,8 @@ void build_modded_declaration(tree *dxpr, SubContext *ctx, location_t bound) {
        * static struct toy myvalue = {.x=1, .y=__tmpcosmo_VAR};
        * static uint8 __chk_ifs_myvalue = 0;
        * if(__chk_ifs_myvalue != 1) {
-       *   struct toy __tmp_myvalue = {.x=1, .y=VAR};
        *   __chk_ifs_myvalue = 1;
-       *   memcpy(&myvalue, &__tmp_myvalue, sizeof(myvalue));
+       *   myvalue.y = VAR;
        * }
        *
        * so the modified statement runs exactly once,
@@ -231,34 +230,13 @@ void build_modded_declaration(tree *dxpr, SubContext *ctx, location_t bound) {
       BLOCK_SUPERCONTEXT(tmpscope) = TREE_BLOCK(*dxpr);
       // debug_tree(BLOCK_SUPERCONTEXT(tmpscope));
 
-      /* build __tmp_myvalue */
-      snprintf(chk, sizeof(chk), "__tmpcosmo_%s", IDENTIFIER_NAME(dcl));
-      tree tmpvar = build_decl(DECL_SOURCE_LOCATION(dcl), VAR_DECL,
-                               get_identifier(chk), TREE_TYPE(dcl));
-      DECL_INITIAL(tmpvar) = copy_struct_ctor(DECL_INITIAL(dcl));
-      // debug_tree(DECL_INITIAL(tmpvar));
-      TREE_USED(tmpvar) = TREE_USED(dcl);
-      DECL_READ_P(tmpvar) = DECL_READ_P(dcl);
-      DECL_CONTEXT(tmpvar) = DECL_CONTEXT(dcl);
-      tree tmpexpr = build1(DECL_EXPR, void_type_node, tmpvar);
-      TREE_SET_BLOCK(tmpexpr, tmpscope);
-      BLOCK_VARS(tmpscope) = tmpvar;
-      modify_local_struct_ctor(DECL_INITIAL(tmpvar), list, bound);
-
       /* create the then clause of the if statement */
       tree then_clause = alloc_stmt_list();
-      append_to_statement_list(tmpexpr, &then_clause);
       append_to_statement_list(build2(MODIFY_EXPR, void_type_node, chknode,
                                       build_int_cst(uint8_type_node, 1)),
                                &then_clause);
-      append_to_statement_list(
-          build_call_expr(VAR_NAME_AS_TREE("__builtin_memcpy"), 3,
-                          build1(NOP_EXPR, void_type_node,
-                                 build1(ADDR_EXPR, ptr_type_node, dcl)),
-                          build1(NOP_EXPR, void_type_node,
-                                 build1(ADDR_EXPR, ptr_type_node, tmpvar)),
-                          DECL_SIZE_UNIT(dcl)),
-          &then_clause);
+      set_values_based_on_ctor(DECL_INITIAL(dcl), ctx->mods, then_clause, dcl,
+                               bound);
       /*
       append_to_statement_list(
           build_call_expr(VAR_NAME_AS_TREE("printf"), 2,
@@ -273,10 +251,9 @@ void build_modded_declaration(tree *dxpr, SubContext *ctx, location_t bound) {
       append_to_statement_list(build1(DECL_EXPR, void_type_node, chknode),
                                &res);
       append_to_statement_list(
-          build_modded_if_stmt(
-              build2(NE_EXPR, void_type_node, chknode,
-                     build_int_cst(uint8_type_node, 1)),
-              build3(BIND_EXPR, void_type_node, tmpvar, then_clause, tmpscope)),
+          build_modded_if_stmt(build2(NE_EXPR, void_type_node, chknode,
+                                      build_int_cst(uint8_type_node, 1)),
+                               then_clause),
           &res);
       /* overwrite the input tree with our new statements */
       *dxpr = res;
