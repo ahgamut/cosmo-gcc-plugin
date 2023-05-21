@@ -35,7 +35,8 @@ source_range get_switch_bounds(tree sws) {
 
 unsigned int count_mods_in_switch(tree swexpr, subu_list *list) {
   tree body = SWITCH_STMT_BODY(swexpr);
-  tree t = NULL;
+  tree t = NULL_TREE;
+  tree replacement = NULL_TREE;
   subu_node *use = NULL;
   unsigned int count = 0;
   for (auto i = tsi_start(body); !tsi_end_p(i); tsi_next(&i)) {
@@ -45,7 +46,7 @@ unsigned int count_mods_in_switch(tree swexpr, subu_list *list) {
                         &use)          /* on a line we substituted */
           && CASE_LOW(t) != NULL_TREE  /* not a x..y range */
           && CASE_HIGH(t) == NULL_TREE /* not a default */
-          && check_magic_equal(CASE_LOW(t), use->name)
+          && arg_should_be_modded(CASE_LOW(t), use, &replacement)
           /* the case is the one we substituted */) {
         DEBUGF("we substituted a case label at %u,%u\n", EXPR_LOC_LINE(t),
                EXPR_LOC_COL(t));
@@ -81,6 +82,7 @@ tree modded_case_label(tree t, unsigned int i, tree swcond, vec<tree> *&ifs,
                        SubContext *ctx, tree *default_label) {
   // debug_tree(t);
   tree result;
+  tree replacement = NULL_TREE;
   subu_node *use = NULL;
   char case_str[128] = {0};
 
@@ -93,16 +95,16 @@ tree modded_case_label(tree t, unsigned int i, tree swcond, vec<tree> *&ifs,
     /* a case label */
     if (get_subu_elem(ctx->mods, EXPR_LOCATION(t), &use)
         /* the case is on a line we substituted */
-        && check_magic_equal(CASE_LOW(t), use->name)
+        && arg_should_be_modded(CASE_LOW(t), use, &replacement)
         /* the case value is the one we substituted */) {
       DEBUGF("modded case\n");
       result =
           build_modded_label(ctx->switchcount, use->name, EXPR_LOCATION(t));
       ifs->safe_push(build_modded_if_stmt(
-          build2(EQ_EXPR, integer_type_node, swcond,
-                 VAR_NAME_AS_TREE(use->name)),
+          build2(EQ_EXPR, integer_type_node, swcond, replacement),
           build1(GOTO_EXPR, void_type_node, LABEL_EXPR_LABEL(result))));
       remove_subu_elem(ctx->mods, use);
+      replacement = NULL_TREE;
     } else {
       /* a case label that we didn't substitute */
       DEBUGF("unmodded case\n");

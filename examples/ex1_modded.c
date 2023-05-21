@@ -101,6 +101,14 @@ void exam_func(int value) {
       printf("you got a 3\n");
       break;
 
+    case -THREE:
+      printf("you got a -3\n");
+      break;
+
+    case ~TWO:
+      printf("you got a ~2\n");
+      break;
+
     case 19 ... 27:
       printf("sorry you don't get a number\n");
       printf("hello TWO is %d\n", TWO);
@@ -174,6 +182,8 @@ int main(int argc, char **argv) {
   exam_func(0);
   exam_func(8);
   exam_func(22);
+  exam_func(~TWO);
+  exam_func(-THREE);
   init_func();
   printf("dummy(1) = %d\n", dummy(1));
   printf("dummy(2) = %d\n", dummy(2));
