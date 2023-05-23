@@ -193,6 +193,11 @@ tree build_modded_switch_stmt(tree swexpr, SubContext *ctx) {
     if (default_label && default_label != NULL_TREE) {
       COND_EXPR_ELSE(res) =
           build1(GOTO_EXPR, void_type_node, LABEL_EXPR_LABEL(default_label));
+    } else {
+      /* if we don't have a default, then the final else branch
+       * should just jump to after the switch */
+        COND_EXPR_ELSE(res) =
+              build1(GOTO_EXPR, void_type_node, LABEL_EXPR_LABEL(exit_label));
     }
     /* reset to the start of the if-else tree */
     res = (*ifs)[0];
@@ -201,7 +206,8 @@ tree build_modded_switch_stmt(tree swexpr, SubContext *ctx) {
     res = build1(GOTO_EXPR, void_type_node, LABEL_EXPR_LABEL(default_label));
   } else {
     /* this switch has no cases, and no default?! */
-    error_at(EXPR_LOCATION(swcond), "what is this switch\n");
+    warning_at(EXPR_LOCATION(swcond), 0, "switch without cases or default?");
+    res = build1(GOTO_EXPR, void_type_node, LABEL_EXPR_LABEL(exit_label));
   }
   auto it = tsi_start(swbody);
   tsi_link_before(&it, res, TSI_SAME_STMT);
