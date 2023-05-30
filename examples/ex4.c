@@ -25,6 +25,7 @@ void init_func() {
   printf("bye t.id = %d, t.value = %d\n", t.id, t.value);
   for (int i = 0; i < 5; ++i) {
     printf("vals[%d] = %d\n", i, vals[i]);
+    vals[i] += 11;
   }
 
   struct toy box[] = {
@@ -34,6 +35,7 @@ void init_func() {
   };
   for (int i = 0; i < 6; ++i) {
     printf("box[%d]: id=%d, value=%d\n", i, box[i].id, box[i].value);
+    box[i].value -= i;
   }
 
   static const struct toyroom r2 = {
@@ -63,6 +65,7 @@ void init_func() {
 }
 
 int main(int argc, char **argv) {
+  init_func();
   init_func();
   return 0;
 }

@@ -39,8 +39,10 @@ static const struct toyroom r1 = {
 
 static __attribute__((constructor)) void myctor() {
   printf("v1 is %d\n", v1);
-  printf("t0.id = %d, t0.value = %d\n", t1.id, t1.value);
+  printf("t0.id = %d, t0.value = %d\n", t0.id, t0.value);
   printf("t1.id = %d, t1.value = %d\n", t1.id, t1.value);
+  t0.value += 112;
+  t1.value += 27;
   for (int i = 0; i < 5; ++i) {
     printf("ta[%d].id = %d, ta[%d].value = %d\n", i, ta[i].id, i, ta[i].value);
   }
@@ -172,6 +174,7 @@ int main(int argc, char **argv) {
   printf("dummy(1) = %d\n", dummy(1));
   printf("dummy(2) = %d\n", dummy(2));
   adder(1, TWO);
+  myctor();
   /* adder(-420, TWO); this is bad */
   return 0;
 }
