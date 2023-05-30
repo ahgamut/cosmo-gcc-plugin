@@ -1,5 +1,10 @@
-CC = gcc
-CXX = g++
+CC = ../musl-cross-make/output/bin/x86_64-linux-musl-gcc
+CXX = ../musl-cross-make/output/bin/x86_64-linux-musl-g++
+
+MUSL_LIB_PATH = ../musl-cross-make/output/x86_64-linux-musl/lib
+
+PLUGIN_CC = gcc
+PLUGIN_CXX = g++
 CXX_PLUGIN_DIR = $(shell $(CXX) -print-file-name=plugin)
 
 ifeq ($(MODE),)
@@ -19,7 +24,7 @@ PLUGIN_OBJS = $(PLUGIN_SOURCES:%.cc=%.o)
 PLUGIN_SONAME = ./portcosmo.so
 
 EXAMPLE_FLAGS = -I./examples -O2
-EXAMPLE_MODFLAGS = $(EXAMPLE_FLAGS) -fplugin=$(PLUGIN_SONAME) -DUSING_PLUGIN=1\
+EXAMPLE_MODFLAGS = $(EXAMPLE_FLAGS) -fportcosmo -DUSING_PLUGIN=1\
 				   -include examples/tmpconst.h -include ./tmpconst.h
 EXAMPLE_RESFLAGS = $(EXAMPLE_FLAGS) -include examples/tmpconst.h -include ./tmpconst.h
 
@@ -32,10 +37,8 @@ EXAMPLE_BINS = $(EXAMPLE_MODBINS) $(EXAMPLE_RESBINS)
 
 all: $(EXAMPLE_RUNS) $(EXAMPLE_BINS)
 
-$(EXAMPLE_RUNS): $(EXAMPLE_BINS)
-
 ./examples/%.runs: ./examples/modded_% ./examples/result_%
-	diff -s <($(word 2,$^)) <($(word 1,$^))
+	diff -ys <($(word 2,$^)) <($(word 1,$^))
 
 ./examples/%.o: ./examples/%.c ./examples/tmpconst.h
 	$(CC) $(EXAMPLE_FLAGS) $< -c -o $@
@@ -44,19 +47,19 @@ $(EXAMPLE_RUNS): $(EXAMPLE_BINS)
 	$(CC) $(EXAMPLE_MODFLAGS) $< -c -o $@
 
 ./examples/modded_%: ./examples/modded_%.o ./examples/functions.o ./examples/supp.o
-	$(CC) $^ -o $@
+	$(PLUGIN_CC) $^ -o $@
 
 ./examples/result_%.o: ./examples/%.c $(PLUGIN_SONAME)
 	$(CC) $(EXAMPLE_RESFLAGS) $< -c -o $@
 
 ./examples/result_%: ./examples/result_%.o ./examples/functions.o
-	$(CC) $^ -o $@
+	$(PLUGIN_CC) $^ -o $@
 
 $(PLUGIN_SONAME): $(PLUGIN_OBJS)
-	$(CXX) $^ -shared -o $@
+	$(PLUGIN_CXX) $^ -shared -o $@
 
 ./src/%.o:	./src/%.cc $(PLUGIN_HEADERS)
-	$(CXX) $(PLUGIN_FLAGS) $< -c -o $@
+	$(PLUGIN_CXX) $(PLUGIN_FLAGS) $< -c -o $@
 
 clean:
 	rm -f ./examples/*.o
