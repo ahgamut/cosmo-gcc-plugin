@@ -1,4 +1,3 @@
-#ifdef ACTUALLY
 #ifndef ACTUALLY_MODS
 #define ACTUALLY_MODS
 static const int __tmpcosmo_AF_ALG = -15823936;
@@ -357,5 +356,4 @@ static const unsigned int __tmpcosmo_B600 = 15823554;
 static const unsigned int __tmpcosmo_B75 = 15823536;
 static const unsigned int __tmpcosmo_B9600 = 15823504;
 static const unsigned short __tmpcosmo_AF_INET6 = 58236;
-#endif
 #endif

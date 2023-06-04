@@ -13,6 +13,11 @@ Licensed under [ISC License](https://www.gnu.org/licenses/license-list.html#ISC)
 correctness of the transformations. When in doubt, transform the code manually.
 See the [Counterexamples](#Counterexamples) section for more details.
 
+** Edit: ** I ended up [patching `gcc`][gccpatch] with the code from this
+plugin. The patched `gcc` does a lot less work than this plugin (and avoids a
+lot of the counterexamples) because I avoid using the macro hack and just patch
+the AST before the parser complains.
+
 ## How to use this plugin?
 
 1. Install the necessary `gcc` plugin headers (you need `gcc` to be able to use
@@ -102,7 +107,8 @@ case __tmpcosmo_SIGABRT:
 This can likely be fixed, it's just a matter of enabling the right optimization
 flag in `gcc`. Better yet: we can figure out how to use `__tmpcosmo_SIGABRT` as
 a macro that can be defined during runtime, instead of a `static const int` in
-`tmpconst.h`, which would circumvent this problem.
+`tmpconst.h`, which would circumvent this problem. ** Edit: ** I ended up
+[patching `gcc`][gccpatch] with the code from this plugin, so this problem is avoided.
 
 * `case` labels with ranges, something like:
 
@@ -124,7 +130,8 @@ func(e);
 Under `gcc`'s optimization flags, `e` will be constant-folded, and its value
 will be used everywhere instead. The plugin has not recorded all the locations
 where `e` could have been used, so it just bails out when seeing a declaration
-like this.
+like this. ** Edit: ** I ended up
+[patching `gcc`][gccpatch] with the code from this plugin, so this problem is avoided.
 
 ```c
 int x = SIGABRT+42;
@@ -136,10 +143,12 @@ for(int i=SIGABRT-1; i < 0; ++i)
 Under `gcc`'s optimization flags, all of the above statements will have been
 constant-folded, and even though the plugins has recorded where the macro was
 used, it does not know what expression was simplified, so it bails out if it was
-unable to substitute a constant in any expression.
+unable to substitute a constant in any expression. ** Edit: ** I ended up
+[patching `gcc`][gccpatch] with the code from this plugin, so this problem is avoided.
 
 * magical things like Duff's device -- I don't know if any C code uses Duff's
-  device with `SIGABRT`, would be fun to find out.
+  device with `SIGABRT`, would be fun to find out.  ** Edit: ** I ended up
+[patching `gcc`][gccpatch] with the code from this plugin, so this problem is avoided.
 
 * substituting the incorrect location due to a `bad` pick of constant: Suppose
   we have some code which uses a lot of integer constants, and some of them *are
@@ -182,8 +191,16 @@ func(27, __tmpcosmo_SIGABRT);
 
 In terms of line information, we only know that the `CALL_EXPR` with `func`
 starts on line 42 (and also its end sometimes) -- we do not know the location of
-the the individual parameters `27` and `-961`, which would be useful to match with
-the location we have saved from when the macro was used.
+the the individual parameters `27` and `-961`, which would be useful to match
+with the location we have saved from when the macro was used. ** Edit: ** I
+ended up [patching `gcc`][gccpatch] with the code from this plugin, so this
+problem is avoided in *most* situations (I haven't found an example of this
+problem in real-life code yet). It can still happen if you're
+initializing a struct or writing a `switch` case with the clashing values, but
+my current belief is that the latter is quite rare (a `switch` whose options
+include both errno constants and other unrelated negative values), and the
+former is still uncommon, and would be caught by a simple test. Either way, the
+fix is to use different constants, or do the AST patching by hand.
 
 ## References:
 
@@ -198,3 +215,6 @@ the location we have saved from when the macro was used.
   [`randstruct`](https://github.com/torvalds/linux/blob/d37aa2efc89b387cda93bf15317883519683d435/scripts/gcc-plugins/randomize_layout_plugin.c) plugin used in the Linux kernel -- this is to understand how much can be done at the GCC plugin level.
 - [GCC OpenMP Runtime Wiki](https://gcc.gnu.org/wiki/openmp) -- need to
   understand how `pragma`s can be used to alert a plugin
+
+
+[gccpatch]: https://github.com/ahgamut/gcc/tree/portcosmo-11.2

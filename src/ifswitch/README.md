@@ -162,4 +162,10 @@ statements which actually need to be modified.
 Disadvantage: this is (likely) not possible to do -- the issue is that the AST
 after a parse error is incomplete, so any modifications are not possible. There
 is also a fear of the `case constant` error being raised due to some unrelated
-issue, and the plugin making things worse.
+issue, and the plugin making things worse. ** Edit: ** I ended up [patching
+`gcc`][gccpatch] to do pretty much this -- instead of using macros, I modify the
+AST with the necessary `__tmpcosmo_` value (after confirming it exists), and
+prevent `gcc` from raising the `case constant` error. Fixing the AST later is
+done as usual.
+
+[gccpatch]: https://github.com/ahgamut/gcc/tree/portcosmo-11.2

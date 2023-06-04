@@ -23,7 +23,7 @@ PLUGIN_HEADERS = $(wildcard src/*.h) \
 PLUGIN_OBJS = $(PLUGIN_SOURCES:%.cc=%.o)
 PLUGIN_SONAME = ./portcosmo.so
 
-EXAMPLE_FLAGS = -I./examples -O2
+EXAMPLE_FLAGS = -I./examples -O0 -g3
 EXAMPLE_MODFLAGS = $(EXAMPLE_FLAGS) -fportcosmo -DUSING_PLUGIN=1\
 				   -include examples/tmpconst.h -include ./tmpconst.h
 EXAMPLE_RESFLAGS = $(EXAMPLE_FLAGS) -include examples/tmpconst.h -include ./tmpconst.h
