@@ -16,7 +16,7 @@
 │ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR             │
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
-#include "ifswitch.h"
+#include <utils.h>
 
 const char *get_tree_code_str(tree expr) {
 #define END_OF_BASE_TREE_CODES
@@ -51,4 +51,3 @@ int check_magic_equal(tree value, char *varname) {
   tree vx = get_ifsw_identifier(varname);
   return tree_int_cst_equal(value, DECL_INITIAL(vx));
 }
-

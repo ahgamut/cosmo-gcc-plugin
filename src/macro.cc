@@ -16,7 +16,7 @@
 │ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR             │
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
-#include "ifswitch.h"
+#include <portcosmo.h>
 
 /* DON'T FREE THE PARTS OF THIS */
 extern SubContext plugin_context;

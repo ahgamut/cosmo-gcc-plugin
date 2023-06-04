@@ -16,7 +16,7 @@
 │ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR             │
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
-#include "ifswitch.h"
+#include <portcosmo.h>
 
 tree check_usage(tree *tp, int *check_subtree, void *data) {
   SubContext *ctx = (SubContext *)(data);

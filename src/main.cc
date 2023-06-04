@@ -16,12 +16,13 @@
 │ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR             │
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
-#include "ifswitch.h"
+#include <portcosmo.h>
 
 int plugin_is_GPL_compatible;
 
-static struct plugin_name_args ifswitch_info = {
-    .base_name = IFSWITCH, .version = IFSWITCH_VERSION, .help = IFSWITCH_HELP};
+static struct plugin_name_args portcosmo_info = {.base_name = PORTCOSMO,
+                                                 .version = PORTCOSMO_VERSION,
+                                                 .help = PORTCOSMO_HELP};
 
 /* FREE THE PARTS OF THIS AT PLUGIN_FINISH */
 SubContext plugin_context;
@@ -45,7 +46,7 @@ int plugin_init(struct plugin_name_args *plugin_info,
 
   DEBUGF("Loading plugin %s on GCC %s...\n", plugin_info->base_name,
          version->basever);
-  register_callback(plugin_info->base_name, PLUGIN_INFO, NULL, &ifswitch_info);
+  register_callback(plugin_info->base_name, PLUGIN_INFO, NULL, &portcosmo_info);
   register_callback(plugin_info->base_name, PLUGIN_START_UNIT, handle_start_tu,
                     &plugin_context);
   register_callback(plugin_info->base_name, PLUGIN_PRE_GENERICIZE,

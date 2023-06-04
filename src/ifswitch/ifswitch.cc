@@ -16,7 +16,7 @@
 │ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR             │
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
-#include "ifswitch.h"
+#include <ifswitch/ifswitch.h>
 
 source_range get_switch_bounds(tree sws) {
   auto rng1 =

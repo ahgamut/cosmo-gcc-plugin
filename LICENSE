@@ -1,4 +1,6 @@
-ifswitch
+ISC License
+
+portcosmo - port software to Cosmopolitan Libc
 Copyright © 2022, Gautham Venkatasubramanian
 
 Permission to use, copy, modify, and/or distribute this software for any

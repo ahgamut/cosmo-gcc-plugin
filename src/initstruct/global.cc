@@ -16,7 +16,7 @@
 │ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR             │
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
-#include "ifswitch.h"
+#include <initstruct/initstruct.h>
 
 tree access_at(tree obj, tree ind) {
   if (TREE_CODE(TREE_TYPE(obj)) == ARRAY_TYPE) {

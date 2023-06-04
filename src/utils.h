@@ -1,15 +1,14 @@
-#ifndef IFSWITCH_HEADERS_H
-#define IFSWITCH_HEADERS_H
-
+#ifndef PORTCOSMO_UTILS_H
+#define PORTCOSMO_UTILS_H
 /* first stdlib headers */
 #include <stdio.h>
-
 /* now all the plugin headers */
 #include <gcc-plugin.h>
 /* first gcc-plugin, then the others */
 #include <c-family/c-common.h>
 #include <c-family/c-pragma.h>
 #include <c-tree.h>
+#include <cgraph.h>
 #include <cpplib.h>
 #include <diagnostic.h>
 #include <plugin-version.h>
@@ -17,7 +16,11 @@
 #include <stringpool.h>
 #include <tree-iterator.h>
 #include <tree.h>
-#include <cgraph.h>
+
+const char *get_tree_code_str(tree);
+int get_value_of_const(char *);
+tree get_ifsw_identifier(char *);
+int check_magic_equal(tree, char *);
 
 /* useful macros */
 #define EXPR_LOC_LINE(x)      LOCATION_LINE(EXPR_LOCATION((x)))
@@ -30,7 +33,7 @@
   (LOCATION_LINE((x)) < LOCATION_LINE((y)) ||   \
    (LOCATION_LINE((x)) == LOCATION_LINE((y)) && \
     LOCATION_COLUMN((x)) <= LOCATION_COLUMN((y))))
-#define LOCATION_AFTER2(x, y)                  \
+#define LOCATION_AFTER2(x, y)                   \
   (LOCATION_LINE((x)) > LOCATION_LINE((y)) ||   \
    (LOCATION_LINE((x)) == LOCATION_LINE((y)) && \
     LOCATION_COLUMN((x)) >= LOCATION_COLUMN((y))))
@@ -45,4 +48,4 @@
 #define DEBUGF(...)
 #endif
 
-#endif
+#endif /* PORTCOSMO_UTILS_H */

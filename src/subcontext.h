@@ -1,6 +1,6 @@
-#ifndef SUB_USAGE_H
-#define SUB_USAGE_H
-#include "headers.h"
+#ifndef SUBCONTEXT_H
+#define SUBCONTEXT_H
+#include <utils.h>
 
 enum SubstType { UNKNOWN = 0, SW_CASE = 1, INITVAL = 2 };
 
@@ -69,4 +69,4 @@ void construct_context(SubContext *);
 void check_context_clear(SubContext *, location_t);
 void cleanup_context(SubContext *);
 
-#endif /* SUB_USAGE_H */
+#endif /* SUBCONTEXT_H */

@@ -16,7 +16,7 @@
 │ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR             │
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
-#include "ifswitch.h"
+#include <initstruct/initstruct.h>
 
 static inline tree build_modded_if_stmt(tree condition, tree then_clause,
                                         tree else_clause = NULL_TREE) {
