@@ -25,8 +25,11 @@ PLUGIN_SONAME = ./portcosmo.so
 
 EXAMPLE_FLAGS = -I./examples -O0 -g3
 EXAMPLE_MODFLAGS = $(EXAMPLE_FLAGS) -fportcosmo -DUSING_PLUGIN=1\
+				   -ffunction-sections -fdata-sections\
 				   -include examples/tmpconst.h -include ./tmpconst.h
-EXAMPLE_RESFLAGS = $(EXAMPLE_FLAGS) -include examples/tmpconst.h -include ./tmpconst.h
+EXAMPLE_RESFLAGS = $(EXAMPLE_FLAGS)\
+				   -ffunction-sections -fdata-sections\
+				   -include examples/tmpconst.h -include ./tmpconst.h
 
 EXAMPLE_SOURCES = $(wildcard examples/ex*.c)
 EXAMPLE_RUNS = $(EXAMPLE_SOURCES:%.c=%.runs)
@@ -47,13 +50,13 @@ all: $(EXAMPLE_RUNS) $(EXAMPLE_BINS)
 	$(CC) $(EXAMPLE_MODFLAGS) $< -c -o $@
 
 ./examples/modded_%: ./examples/modded_%.o ./examples/functions.o ./examples/supp.o
-	$(PLUGIN_CC) $^ -o $@
+	$(PLUGIN_CC) -o $@ $^ -Wl,--gc-sections
 
 ./examples/result_%.o: ./examples/%.c $(PLUGIN_SONAME)
 	$(CC) $(EXAMPLE_RESFLAGS) $< -c -o $@
 
 ./examples/result_%: ./examples/result_%.o ./examples/functions.o
-	$(PLUGIN_CC) $^ -o $@
+	$(PLUGIN_CC) -o $@ $^ -Wl,--gc-sections
 
 $(PLUGIN_SONAME): $(PLUGIN_OBJS)
 	$(PLUGIN_CXX) $^ -shared -o $@

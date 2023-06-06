@@ -85,9 +85,8 @@ int main() {
     static struct toy m2 = {.status = __tmpcosmo_SIGABRT, .value = 25};
     static uint8_t __chk2 = 0;
     if(__chk2 == 0) {
-        struct toy __tmpm2 = {.status = SIGABRT, .value = 25};
-        __chk1 = 1;
-        __builtin_memcpy(&m2, &__tmpm2, sizeof(m2));
+        m2.status = SIGABRT;
+        __chk2 = 1;
     }
     return 0;
 }
@@ -106,13 +105,4 @@ The plugin will error out if attempting to modify a `static const int` or
 similar integral primitive type, and raise a warning for `static const struct`
 or similar compound type.
  
-## Why are the `struct` initializations different for global and local?
-
-Um, I wrote the local `struct` initialization first, which was quite easy due to
-`__builtin_memcpy`. But somehow I kept getting compiler errors when attempting
-to use `__builtin_memcpy` for the global `struct`s, so I wrote the
-component-wise modifier instead. I think the method used for global variables is
-better (less stack allocations), so I might update the code to that later
-sometime.
-
 [pyfault]: https://github.com/ahgamut/cpython/blob/master/Modules/faulthandler.c#L66
