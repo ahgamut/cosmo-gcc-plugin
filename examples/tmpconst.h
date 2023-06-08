@@ -8,8 +8,8 @@ extern void something_3();
 #define ACTUALLY(X) X
 #endif
 
-static const int __tmpcosmo_TWO = -420;
-static const int __tmpcosmo_THREE = -422;
+#define __tmpcosmo_TWO -420
+#define __tmpcosmo_THREE -422
 
 extern const int TWO;
 extern const int THREE;
