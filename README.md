@@ -3,20 +3,24 @@
 This is a `gcc` plugin written to ease porting C software to Cosmopolitan Libc.
 The general idea is to reduce manually changing the source code of any external
 software when attempting to build it with Cosmopolitan Libc -- ideally, you
-would need to customize the build process, but make zero changes to the source
-code.
+would need to customize only the build process, but make zero changes to the
+source code.
 
 Licensed under [ISC License](https://www.gnu.org/licenses/license-list.html#ISC).
+
+> I ended up [writing a `gcc` patch][gccpatch] with the code from this plugin.
+My patch is also licensed under ISC. The patched `gcc` does a lot less work than
+this plugin (and avoids almost all of the counterexamples) because I avoid using
+the macro hack and just patch the AST before the parser complains. (Per my
+current understanding, `gcc` does not provide plugin access to the program AST
+_during its construction in the parsing process_, which is why I wrote the patch
+instead. However, plugins provide a sufficiently large surface to figure out
+what a problem requires before diving into the depths of `gcc` internals.
 
 **Note**: this plugin has not yet been fully tested -- please check the compiled
 `.o` file, generated ASM, or errors in your test suite to confirm the
 correctness of the transformations. When in doubt, transform the code manually.
 See the [Counterexamples](#Counterexamples) section for more details.
-
-** Edit: ** I ended up [patching `gcc`][gccpatch] with the code from this
-plugin. The patched `gcc` does a lot less work than this plugin (and avoids a
-lot of the counterexamples) because I avoid using the macro hack and just patch
-the AST before the parser complains.
 
 ## How to use this plugin?
 
@@ -27,15 +31,13 @@ the AST before the parser complains.
    `-O2 -fplugin=/location/of/portcosmo.so -include /location/of/tmpconst.h`)
     and use that as `CC` when building software.
 
-As for now you will need to use [this
-branch](https://github.com/ahgamut/cosmopolitan/tree/symbolic-macro) where I've
-been trying to ensure I change as little of Cosmopolitan Libc as possible in
-order to make this work.
-
-And it does work! [This
+For building software with Cosmopolitan Libc+this plugin, you will need to use
+[this branch](https://github.com/ahgamut/cosmopolitan/tree/symbolic-macro) where
+I've been trying to ensure I change as little of Cosmopolitan Libc as possible
+in order to make this work. And it does work! [This
 branch](https://github.com/ahgamut/cpython/tree/py311-custom) of CPython
-3.11.0rc1 builds with Cosmopolitan Libc, and I don't had to modify any `switch`
-statements.
+3.11.0rc1 builds with Cosmopolitan Libc, and I didn't have to modify any
+`switch` statements.
 
 ## How does it work?
 
@@ -107,7 +109,7 @@ case __tmpcosmo_SIGABRT:
 This can likely be fixed, it's just a matter of enabling the right optimization
 flag in `gcc`. Better yet: we can figure out how to use `__tmpcosmo_SIGABRT` as
 a macro that can be defined during runtime, instead of a `static const int` in
-`tmpconst.h`, which would circumvent this problem. ** Edit: ** I ended up
+`tmpconst.h`, which would circumvent this problem. **Edit:** I ended up
 [patching `gcc`][gccpatch] with the code from this plugin, so this problem is avoided.
 
 * `case` labels with ranges, something like:
@@ -130,7 +132,7 @@ func(e);
 Under `gcc`'s optimization flags, `e` will be constant-folded, and its value
 will be used everywhere instead. The plugin has not recorded all the locations
 where `e` could have been used, so it just bails out when seeing a declaration
-like this. ** Edit: ** I ended up
+like this. **Edit:** I ended up
 [patching `gcc`][gccpatch] with the code from this plugin, so this problem is avoided.
 
 ```c
@@ -143,11 +145,11 @@ for(int i=SIGABRT-1; i < 0; ++i)
 Under `gcc`'s optimization flags, all of the above statements will have been
 constant-folded, and even though the plugins has recorded where the macro was
 used, it does not know what expression was simplified, so it bails out if it was
-unable to substitute a constant in any expression. ** Edit: ** I ended up
+unable to substitute a constant in any expression. **Edit:** I ended up
 [patching `gcc`][gccpatch] with the code from this plugin, so this problem is avoided.
 
 * magical things like Duff's device -- I don't know if any C code uses Duff's
-  device with `SIGABRT`, would be fun to find out.  ** Edit: ** I ended up
+  device with `SIGABRT`, would be fun to find out.  **Edit:** I ended up
 [patching `gcc`][gccpatch] with the code from this plugin, so this problem is avoided.
 
 * substituting the incorrect location due to a `bad` pick of constant: Suppose
@@ -192,29 +194,34 @@ func(27, __tmpcosmo_SIGABRT);
 In terms of line information, we only know that the `CALL_EXPR` with `func`
 starts on line 42 (and also its end sometimes) -- we do not know the location of
 the the individual parameters `27` and `-961`, which would be useful to match
-with the location we have saved from when the macro was used. ** Edit: ** I
-ended up [patching `gcc`][gccpatch] with the code from this plugin, so this
-problem is avoided in *most* situations (I haven't found an example of this
-problem in real-life code yet). It can still happen if you're
+with the location we have saved from when the macro was used. 
+
+> **Edit:** I ended up [patching `gcc`][gccpatch] with the code from this
+plugin, so this problem is avoided in *most* situations (I haven't found an
+example of this problem in real-life code yet). It can still happen if you're
 initializing a struct or writing a `switch` case with the clashing values, but
 my current belief is that the latter is quite rare (a `switch` whose options
 include both errno constants and other unrelated negative values), and the
 former is still uncommon, and would be caught by a simple test. Either way, the
-fix is to use different constants, or do the AST patching by hand.
+fix is the same as always: use different constants, or do the AST patching by
+hand.
 
 ## References:
 
+- The [`gcc` Internals documentation][gccint] -- this document, along with the
+  `gcc` headers for plugin writers, provides everything you need to know about
+  what plugins can do.
 - [History of C](https://en.cppreference.com/w/c/language/history)
 - [C99 `switch` constraints and semantics](https://www.open-std.org/jtc1/sc22/wg14/www/C99RationaleV5.10.pdf) -- see page 92, $\S 6.8.4.2$
 - [C11 `switch` constraints and semantics](https://open-std.org/JTC1/SC22/WG14/www/docs/n1570.pdf) -- see page 149, $\S 6.8.4.2$
 - [C17 final draft `switch` constraints and semantics](https://files.lhmouse.com/standards/ISO%20C%20N2176.pdf) -- see page 108, $\S 6.8.4.2$
-- [Assert Rewriting in GCC](https://jongy.github.io/2020/04/25/gcc-assert-introspect.html)
-- [An Introduction to GCC and GCC's plugins](https://gabrieleserra.ml/blog/2020-08-27-an-introduction-to-gcc-and-gccs-plugins.html)
+- [Assert Rewriting in `gcc`](https://jongy.github.io/2020/04/25/gcc-assert-introspect.html)
+- [An Introduction to `gcc` and `gcc`'s plugins](https://gabrieleserra.ml/blog/2020-08-27-an-introduction-to-gcc-and-gccs-plugins.html)
 - [LWN: Randomizing Structure Layout](https://lwn.net/Articles/722293/)
 - Source code of the
-  [`randstruct`](https://github.com/torvalds/linux/blob/d37aa2efc89b387cda93bf15317883519683d435/scripts/gcc-plugins/randomize_layout_plugin.c) plugin used in the Linux kernel -- this is to understand how much can be done at the GCC plugin level.
-- [GCC OpenMP Runtime Wiki](https://gcc.gnu.org/wiki/openmp) -- need to
+  [`randstruct`](https://github.com/torvalds/linux/blob/d37aa2efc89b387cda93bf15317883519683d435/scripts/gcc-plugins/randomize_layout_plugin.c) plugin used in the Linux kernel -- this is to understand how much can be done at the `gcc` plugin level.
+- [`gcc` OpenMP Runtime Wiki](https://gcc.gnu.org/wiki/openmp) -- need to
   understand how `pragma`s can be used to alert a plugin
 
-
 [gccpatch]: https://github.com/ahgamut/gcc/tree/portcosmo-11.2
+[gccint]: https://gcc.gnu.org/onlinedocs/gcc-11.2.0/gccint/
