@@ -46,14 +46,20 @@ all: $(EXAMPLE_RUNS) $(EXAMPLE_BINS)
 ./examples/%.o: ./examples/%.c ./examples/tmpconst.h
 	$(CC) $(EXAMPLE_FLAGS) $< -c -o $@
 
-./examples/modded_%.o: ./examples/%.c $(PLUGIN_SONAME)
+./examples/modded_%.o: ./examples/%.c
 	$(CC) $(EXAMPLE_MODFLAGS) $< -c -o $@
+
+./examples/modded_%.o: ./examples/%.cc
+	$(CXX) $(EXAMPLE_MODFLAGS) $< -c -o $@
 
 ./examples/modded_%: ./examples/modded_%.o ./examples/functions.o ./examples/supp.o
 	$(PLUGIN_CC) -o $@ $^ -Wl,--gc-sections
 
-./examples/result_%.o: ./examples/%.c $(PLUGIN_SONAME)
+./examples/result_%.o: ./examples/%.c
 	$(CC) $(EXAMPLE_RESFLAGS) $< -c -o $@
+
+./examples/result_%.o: ./examples/%.cc
+	$(CXX) $(EXAMPLE_RESFLAGS) $< -c -o $@
 
 ./examples/result_%: ./examples/result_%.o ./examples/functions.o
 	$(PLUGIN_CC) -o $@ $^ -Wl,--gc-sections

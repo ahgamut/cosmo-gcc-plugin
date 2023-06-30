@@ -8,13 +8,13 @@ extern void something_3();
 #define ACTUALLY(X) X
 #endif
 
-#define __tmpcosmo_TWO -420
-#define __tmpcosmo_THREE -422
-
 extern const int TWO;
 extern const int THREE;
-#define TWO   ACTUALLY(TWO)
-#define THREE ACTUALLY(THREE)
+#define TWO   TWO
+#define THREE THREE
+
+#define __tmpcosmo_TWO -420
+#define __tmpcosmo_THREE -422
 
 #else
 
