@@ -28,14 +28,14 @@ void init_func() {
     vals[i] += 11;
   }
 
-  struct toy box[] = {
+  const struct toy box[] = {
       {.id = 1, .value = 1},       {.id = -THREE, .value = THREE},
-      {.id = THREE, .value = 1},   {.id = -TWO, .value = ~TWO},
+      {.id = (TWO*THREE), .value = 1},   {.id = -TWO, .value = ~TWO},
       {.id = TWO, .value = THREE}, {.id = ~THREE, .value = TWO},
   };
   for (int i = 0; i < 6; ++i) {
     printf("box[%d]: id=%d, value=%d\n", i, box[i].id, box[i].value);
-    box[i].value -= i;
+    // box[i].value -= i;
   }
 
   static const struct toyroom r2 = {

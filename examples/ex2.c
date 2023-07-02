@@ -19,23 +19,23 @@ struct toyroom {
 
 static int v1 = TWO;
 static int arr1[] = {TWO, THREE, ~THREE, ~TWO};
-struct toy t0 = {.id = 30, .value = THREE};
-static struct toy t1 = {.id = 31, .value = TWO};
-static const struct toy ta[] = {{.id = 1, .value = ~TWO},
+static toy t0 = {.id = 30, .value = THREE};
+static toy t1 = {.id = 31, .value = TWO};
+static const toy ta[] = {{.id = 1, .value = ~TWO},
                                 {.id = ~THREE, .value = TWO},
-                                {.value = TWO, .id = -THREE},
+                                {.id = TWO, .value = -THREE},
                                 {.id = THREE, .value = 1},
                                 {.id = 7, .value = THREE}};
-static const struct toyroom r1 = {
+static const toyroom r1 = {
     .id = 2,
     .value = -TWO,
     .x1 = {.id = 1, .value = TWO},
     .x2 = {.id = ~TWO, .value = 1},
-    .x3 = {.value = TWO, .id = -THREE},
+    .x3 = {.id = TWO, .value = -THREE},
     .x4 = {.id = THREE, .value = ~THREE},
 };
 
-static __attribute__((constructor)) void myctor() {
+__attribute__((constructor)) void myctor() {
   printf("v1 is %d\n", v1);
   printf("t0.id = %d, t0.value = %d\n", t1.id, t1.value);
   printf("t1.id = %d, t1.value = %d\n", t1.id, t1.value);
