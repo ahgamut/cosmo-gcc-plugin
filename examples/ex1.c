@@ -38,14 +38,23 @@ void exam_func(int value) {
       printf("you got a ~2\n");
       break;
 
-    case (TWO*THREE):
-      printf("this is an arbitrary expression: %d\n", TWO*THREE);
+    case (TWO * THREE):
+      printf("this is an arbitrary expression: %d\n", TWO * THREE);
       break;
 
     case 19 ... 27:
       printf("sorry you don't get a number\n");
       printf("hello TWO is %d\n", TWO);
       break;
+
+    case 28 ... 36:
+      printf("new case\n");
+      if (value % 2 == 0) {
+        if (value % 4 == 0) {
+          printf("bye bye value was %d\n", value);
+          break;
+        }
+      }
 
     case 0:
       something_0();
@@ -67,8 +76,9 @@ int main(int argc, char **argv) {
   exam_func(0);
   exam_func(8);
   exam_func(22);
+  exam_func(32);
   exam_func(~TWO);
   exam_func(-THREE);
-  exam_func(TWO*THREE);
+  exam_func(TWO * THREE);
   return 0;
 }
